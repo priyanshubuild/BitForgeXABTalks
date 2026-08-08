@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Any, List, Set, Tuple
+from typing import Dict, Any, List, Set, Tuple, Optional
 from backend.llm_client import call_llm
 
 # Load curriculum.json from project root
@@ -221,14 +221,101 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
         reply_text += prompt_continuation
         session["messages"][-1]["content"] = reply_text
 
-    if is_complete and llm_res.get("feedback"):
+    if is_complete:
+        feedback_obj = generate_feedback_with_retry(session)
         return {
             "reply": reply_text,
             "done": True,
-            "feedback": llm_res["feedback"]
+            "feedback": feedback_obj
         }
     else:
         return {
             "reply": reply_text,
             "done": False
         }
+
+
+def validate_feedback_shape(res: Any) -> Optional[Dict[str, Any]]:
+    if not isinstance(res, dict):
+        return None
+        
+    feedback_obj = None
+    if all(k in res for k in ["summary", "strengths", "gaps", "next"]):
+        feedback_obj = res
+    elif "feedback" in res and isinstance(res["feedback"], dict):
+        feedback_obj = res["feedback"]
+        
+    if feedback_obj and all(k in feedback_obj for k in ["summary", "strengths", "gaps", "next"]):
+        if (isinstance(feedback_obj["summary"], str) and
+            isinstance(feedback_obj["strengths"], list) and
+            isinstance(feedback_obj["gaps"], list) and
+            isinstance(feedback_obj["next"], list)):
+            return {
+                "summary": feedback_obj["summary"],
+                "strengths": [str(s) for s in feedback_obj["strengths"]],
+                "gaps": [str(g) for g in feedback_obj["gaps"]],
+                "next": [str(n) for n in feedback_obj["next"]]
+            }
+    return None
+
+
+def generate_feedback_with_retry(session: Dict[str, Any]) -> Dict[str, Any]:
+    system_prompt = """You are an expert AI Technical Evaluator. Your job is to analyze the conversation history of a technical interview and generate structured feedback.
+
+Return a JSON object matching this EXACT schema:
+{
+  "summary": "A 2-3 sentence overview of candidate performance, communication style, and technical depth.",
+  "strengths": [
+    "Actionable strength 1 (e.g. strong understanding of ChromaDB metadata filtering)",
+    "Actionable strength 2"
+  ],
+  "gaps": [
+    "Actionable gap 1 (e.g. struggled to explain Docker container readiness probes)",
+    "Actionable gap 2"
+  ],
+  "next": [
+    "Concrete study/practice suggestion 1 tied to specific curriculum days the candidate struggled on or skipped",
+    "Concrete study/practice suggestion 2"
+  ]
+}
+
+Ensure all arrays contain concise, actionable points. Output ONLY valid JSON."""
+
+    messages = session["messages"]
+
+    # Try 1
+    try:
+        res = call_llm(system_prompt, messages)
+        validated = validate_feedback_shape(res)
+        if validated:
+            return validated
+    except Exception as e:
+        print(f"Feedback generation try 1 failed: {e}")
+
+    # Retry once
+    print("Retrying feedback generation...")
+    try:
+        res = call_llm(system_prompt, messages)
+        validated = validate_feedback_shape(res)
+        if validated:
+            return validated
+    except Exception as e:
+        print(f"Feedback generation try 2 failed: {e}")
+
+    # Fallback structure
+    candidate_name = session["candidate"]["member"]["name"]
+    return {
+        "summary": f"Technical evaluation completed for {candidate_name}.",
+        "strengths": [
+            "Demonstrated participation in the interactive interview sessions.",
+            "Responded to technical topics across multiple curriculum days."
+        ],
+        "gaps": [
+            "In-depth validation of skipped or failed curriculum modules was limited.",
+            "Further demonstration of hands-on application execution is recommended."
+        ],
+        "next": [
+            "Review core objectives in the curriculum guidelines.",
+            "Attempt skipped missions under simulated practice scenarios."
+        ]
+    }

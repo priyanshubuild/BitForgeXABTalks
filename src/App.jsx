@@ -10,7 +10,7 @@ export default function App() {
   const [selectedCandidateId, setSelectedCandidateId] = useState(CANDIDATES_SAMPLE[0].member.id);
   const [sessionId, setSessionId] = useState(`sess-${Date.now()}`);
   
-  const [backendUrl, setBackendUrl] = useState('http://localhost:8000');
+  const [backendUrl, setBackendUrl] = useState('http://localhost:8001');
   const [isBackendOnline, setIsBackendOnline] = useState(false);
   
   const [messages, setMessages] = useState([]);

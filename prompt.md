@@ -32,3 +32,9 @@ This file maintains the prompt history and AI agent usage log for the **AI Inter
 
 ### Prompt 5: Hackathon Submission & AI Usage Log
 - Maintain `PROMPTS.md` and `prompt.md` log throughout codebase for submission verification
+
+### Prompt 6: Project Setup, Port Resolution & End-of-Interview Refactoring
+- Set up React frontend packages and Python backend virtual environment
+- Resolved port 8000 conflict by switching default backend port to 8001
+- Implemented the dedicated final feedback LLM call with shape validation, retries, and fallback objects to prevent API crashes.
+

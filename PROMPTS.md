@@ -100,8 +100,25 @@
 
 ---
 
+### Phase 6: Project Setup, Port Resolution & End-of-Interview Refactoring
+**Prompt:**
+> read the source adn also add reuwqired files (react vite files , this is comaborated project from collaboration and i didnt made the setup so made the setup and complete the project
+>
+> Now implement the end-of-interview step.
+> When the interview engine decides the interview is done (per the rules from before), make one final LLM call whose only job is to produce structured feedback from the full conversation history: a "summary" string, "strengths" array, "gaps" array, and "next" array (concrete study/practice suggestions tied to specific curriculum days the candidate struggled on or skipped).
+> Force this into valid JSON reliably — use the LLM's structured/JSON output mode rather than trying to parse free text, and validate the shape before returning it in the API response, matching technical-spec.md exactly. Add basic error handling: if the LLM call fails or returns malformed JSON, retry once, then fall back to a minimal valid feedback object rather than crashing the endpoint.
+
+**Actions & Results:**
+- Set up local Python virtual environment (`venv`) and node modules via `npm install`.
+- Configured port `8001` for the FastAPI backend and updated the React frontend to resolve a conflict on port `8000`.
+- Refactored `backend/interview_engine.py` to add `generate_feedback_with_retry` and `validate_feedback_shape`.
+- Verified end-to-end integration and validated outputs under normal flow and fallbacks.
+
+---
+
 ## 🚀 Live Deployment Checklist
 - [x] Public GitHub Repository: `https://github.com/priyanshubuild/BitForgeXABTalks`
 - [x] AI Usage Log: [`PROMPTS.md`](file:///c:/Users/PRINCE/OneDrive/Desktop/BitForge/BitForgeXABTalks/PROMPTS.md) & [`prompt.md`](file:///c:/Users/PRINCE/OneDrive/Desktop/BitForge/BitForgeXABTalks/prompt.md)
-- [x] Backend API: `POST /api/interview` & `GET /health`
-- [x] React Single Page Application with client fallbacks ready for Vercel/Netlify deployment
+- [x] Backend API: `POST /api/interview` & `GET /health` (running on port 8001)
+- [x] React Single Page Application with client fallbacks ready for Vercel/Netlify deployment (running on port 3000)
+
