@@ -158,3 +158,32 @@ This document serves as the log for prompts and design decisions made using **An
 - `source_node`/`target_node` UUID labels replaced with `candidate_name` and first 3 words of the fact string — readable chip labels in the memory panel.
 - Added explicit `[Breeth]` console logs before/after both write and search so network errors surface in server logs immediately.
 
+---
+
+## 🎨 Phase 8: Complete UI/UX Overhaul — Immersive Multi-Page Experience
+*In this phase, we performed a complete frontend redesign: landing page, candidate selection grid, markdown-rendered chat, circular progress rings, and polished dark/light themes. All 20 hackathon candidates are now loaded.*
+
+### Prompts Used
+> Complete reform of the UI and UX. I want the most immersive and modern UI that doesn't feel like AI slop. Make dark and light mode both visually great. Load ALL 20 candidates. Add a landing page and candidate selection flow. Add markdown rendering. Redesign all components with premium aesthetics.
+
+### Files Created / Modified
+- `src/data/candidates.js` *(new — all 20 hackathon candidates + curriculum modules)*
+- `src/index.css` *(complete rewrite — design system with landing, selection, interview styles)*
+- `src/components/LandingPage.jsx` *(new — hero with animated stats, feature cards, tech badges)*
+- `src/components/CandidateSelect.jsx` *(new — searchable grid with progress bars, hover CTAs)*
+- `src/components/Header.jsx` *(rewritten — compact with back nav and candidate info)*
+- `src/components/CandidateSidebar.jsx` *(rewritten — SVG circular progress rings)*
+- `src/components/ChatStream.jsx` *(rewritten — react-markdown + remark-gfm rendering)*
+- `src/components/FeedbackModal.jsx` *(polished — item count badges, tighter spacing)*
+- `src/App.jsx` *(complete rewrite — 3-page navigation flow)*
+- `README.md` *(rewritten — architecture diagram, requirements checklist)*
+
+### Core Accomplishments
+- **3-Page Navigation**: Landing → Candidate Selection → Interview, replacing single-page dropdown
+- **All 20 Candidates**: Complete hackathon `candidates.json` loaded (was 4)
+- **Immersive Landing**: Gradient hero, animated feature cards, tech badges, stat counters
+- **Candidate Selection Grid**: Searchable cards with completion bars and mini stats
+- **Markdown Chat**: `react-markdown` + `remark-gfm` for rich AI responses
+- **SVG Progress Rings**: Animated circular stats in sidebar
+- **CSS Design System**: Custom properties, glassmorphism, smooth dark/light transitions
+- **Dependencies**: Added `react-markdown`, `remark-gfm`, `framer-motion`

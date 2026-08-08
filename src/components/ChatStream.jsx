@@ -1,59 +1,59 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Send, Bot, User, Award, Zap } from 'lucide-react';
 
-/* ── Typing Animation ────────────────────────────────────────── */
+/* Typing animation */
 function TypewriterText({ text, speed = 8, onDone }) {
   const [displayed, setDisplayed] = useState('');
   const [done, setDone] = useState(false);
   const iRef = useRef(0);
 
   useEffect(() => {
-    setDisplayed('');
-    setDone(false);
-    iRef.current = 0;
-
+    setDisplayed(''); setDone(false); iRef.current = 0;
     const iv = setInterval(() => {
-      if (iRef.current >= text.length) {
-        clearInterval(iv);
-        setDone(true);
-        onDone?.();
-        return;
-      }
-      // Advance multiple chars per tick for speed
+      if (iRef.current >= text.length) { clearInterval(iv); setDone(true); onDone?.(); return; }
       const chunk = text.slice(iRef.current, iRef.current + speed);
       setDisplayed(prev => prev + chunk);
       iRef.current += speed;
     }, 16);
-
     return () => clearInterval(iv);
   }, [text]);
 
   return (
     <span>
-      {displayed}
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{displayed}</ReactMarkdown>
       {!done && <span className="typing-cursor" />}
     </span>
   );
 }
 
-/* ── Quick prompts ───────────────────────────────────────────── */
+/* Markdown renderer components */
+const MD_COMPONENTS = {
+  p: ({ children }) => <p style={{ marginBottom: 8 }}>{children}</p>,
+  strong: ({ children }) => <strong style={{ color: 'var(--indigo-hov)', fontWeight: 700 }}>{children}</strong>,
+  code: ({ children }) => (
+    <code style={{
+      background: 'var(--bg-elevated)', padding: '2px 6px', borderRadius: 4,
+      fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--cyan)',
+    }}>{children}</code>
+  ),
+  ul: ({ children }) => <ul style={{ paddingLeft: 18, marginBottom: 6 }}>{children}</ul>,
+  ol: ({ children }) => <ol style={{ paddingLeft: 18, marginBottom: 6 }}>{children}</ol>,
+  li: ({ children }) => <li style={{ marginBottom: 3, fontSize: 13.5 }}>{children}</li>,
+};
+
+/* Quick prompts */
 const QUICK_PROMPTS = [
-  "We used recursive chunking with 512-token size and 50-token overlap, and cosine similarity.",
-  "ChromaDB locally with metadata filtering; Pinecone for cloud with exact namespace isolation.",
-  "Session state persisted in-memory dict, token truncation to keep within 4k context window.",
+  "We used recursive chunking with 512-token size and 50-token overlap, using cosine similarity for matching.",
+  "ChromaDB locally with metadata filtering; Pinecone for cloud with namespace isolation.",
+  "Session state persisted via SQLite, token truncation to keep within 4k context window.",
   "Router agent delegated via intent classification before calling specialist sub-agents.",
-  "MCP gives standardized tool schemas, making our tools reusable across different LLM clients.",
-  "Docker readiness probe on /health endpoint with 5s timeout and 3 retry attempts.",
+  "MCP gives standardized tool schemas, making tools reusable across different LLM clients.",
+  "Docker readiness probe on /health with 5s timeout and 3 retry attempts.",
 ];
 
-export default function ChatStream({
-  messages,
-  onSendMessage,
-  isLoading,
-  candidate,
-  isComplete,
-  onShowFeedback,
-}) {
+export default function ChatStream({ messages, onSendMessage, isLoading, candidate, isComplete, onShowFeedback }) {
   const [input, setInput] = useState('');
   const [lastAnimated, setLastAnimated] = useState(-1);
   const endRef = useRef(null);
@@ -64,10 +64,7 @@ export default function ChatStream({
   }, []);
 
   useEffect(() => { scrollToBottom(); }, [messages, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading && !isComplete) inputRef.current?.focus();
-  }, [isLoading, isComplete]);
+  useEffect(() => { if (!isLoading && !isComplete) inputRef.current?.focus(); }, [isLoading, isComplete]);
 
   const handleSubmit = (e) => {
     e?.preventDefault();
@@ -85,80 +82,51 @@ export default function ChatStream({
 
   return (
     <main style={{
-      flex: 1,
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      overflow: 'hidden',
-      background: 'var(--bg-surface)',
-      position: 'relative',
+      flex: 1, display: 'flex', flexDirection: 'column', height: '100%',
+      overflow: 'hidden', background: 'var(--bg-surface)', position: 'relative',
     }}>
-      {/* ── Top bar ─────────────────────────────── */}
+      {/* Top bar */}
       <div className="glass" style={{
-        padding: '10px 20px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderLeft: 'none', borderRight: 'none', borderTop: 'none',
-        borderRadius: 0,
-        flexShrink: 0,
+        padding: '9px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        borderLeft: 'none', borderRight: 'none', borderTop: 'none', borderRadius: 0, flexShrink: 0,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span className={`status-dot ${isLoading ? 'loading' : isComplete ? 'online' : 'online'}`} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>
-            {isLoading
-              ? 'AI Interviewer is formulating question…'
-              : isComplete
-              ? 'Interview completed — view your evaluation report'
-              : 'Live technical interview in progress'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className={`status-dot ${isLoading ? 'loading' : 'online'}`} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>
+            {isLoading ? 'AI formulating question…' : isComplete ? 'Interview completed' : 'Live interview'}
           </span>
         </div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {isComplete && (
-            <button className="btn-primary" onClick={onShowFeedback} style={{ fontSize: 12, padding: '6px 14px' }}>
-              <Award size={13} />
-              View Evaluation Report
+            <button className="btn-primary" onClick={onShowFeedback} style={{ fontSize: 11, padding: '5px 14px' }}>
+              <Award size={12} /> View Report
             </button>
           )}
-          <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
-            {messages.filter(m => m.role === 'assistant').length} questions asked
+          <span className="mono" style={{ color: 'var(--text-3)', fontSize: 10 }}>
+            {messages.filter(m => m.role === 'assistant').length} Q
           </span>
         </div>
       </div>
 
-      {/* ── Messages ────────────────────────────── */}
+      {/* Messages */}
       <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '24px 28px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 20,
+        flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16,
       }}>
         {messages.length === 0 && (
           <div style={{
-            margin: 'auto',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 12,
-            opacity: 0.6,
+            margin: 'auto', textAlign: 'center', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', gap: 10, opacity: 0.5,
           }}>
             <div style={{
-              width: 64, height: 64,
-              borderRadius: 'var(--r-xl)',
+              width: 56, height: 56, borderRadius: 'var(--r-xl)',
               background: 'linear-gradient(135deg, var(--indigo), var(--violet))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 30px var(--indigo-glow)',
+              boxShadow: '0 0 24px var(--indigo-glow)',
             }}>
-              <Bot size={32} color="#fff" />
+              <Bot size={28} color="#fff" />
             </div>
-            <div>
-              <p style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-1)' }}>Interview Ready</p>
-              <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 4 }}>Select a candidate to begin the AI evaluation session</p>
-            </div>
+            <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-1)' }}>Interview Ready</p>
+            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Preparing your evaluation session…</p>
           </div>
         )}
 
@@ -167,120 +135,82 @@ export default function ChatStream({
           const isLatestAI = isAI && i === messages.length - 1 && i > lastAnimated;
 
           return (
-            <div
-              key={i}
-              className="animate-fade-up"
-              style={{
-                display: 'flex',
-                gap: 12,
-                maxWidth: '80%',
-                alignSelf: isAI ? 'flex-start' : 'flex-end',
-                flexDirection: isAI ? 'row' : 'row-reverse',
-                animationDelay: `${i * 0.02}s`,
-              }}
-            >
-              {/* Avatar */}
+            <div key={i} className="animate-fade-up" style={{
+              display: 'flex', gap: 10, maxWidth: '78%',
+              alignSelf: isAI ? 'flex-start' : 'flex-end',
+              flexDirection: isAI ? 'row' : 'row-reverse',
+              animationDelay: `${i * 0.02}s`,
+            }}>
               {isAI
-                ? <div className="avatar-ai"><Bot size={17} color="#fff" strokeWidth={2} /></div>
+                ? <div className="avatar-ai"><Bot size={16} color="#fff" strokeWidth={2} /></div>
                 : <div className="avatar-user">{initials}</div>
               }
-
-              {/* Bubble */}
-              <div className={isAI ? 'bubble-ai' : 'bubble-user'} style={{ padding: '13px 17px' }}>
+              <div className={isAI ? 'bubble-ai' : 'bubble-user'} style={{ padding: '12px 16px' }}>
                 <div style={{
-                  fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em',
+                  fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
                   color: isAI ? 'var(--indigo-hov)' : 'var(--text-3)',
-                  marginBottom: 6, textTransform: 'uppercase',
+                  marginBottom: 5, textTransform: 'uppercase',
                 }}>
                   {isAI ? 'AI Interviewer' : candidate?.member?.name || 'Candidate'}
                 </div>
-
-                <p style={{
-                  fontSize: 14, lineHeight: 1.7,
-                  color: 'var(--text-1)',
-                  whiteSpace: 'pre-wrap',
-                  fontWeight: isAI ? 400 : 400,
-                }}>
-                  {isLatestAI
-                    ? <TypewriterText
-                        text={msg.content}
-                        speed={6}
-                        onDone={() => setLastAnimated(i)}
-                      />
-                    : msg.content
-                  }
-                </p>
+                <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--text-1)' }}>
+                  {isAI ? (
+                    isLatestAI
+                      ? <TypewriterText text={msg.content} speed={6} onDone={() => setLastAnimated(i)} />
+                      : <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{msg.content}</ReactMarkdown>
+                  ) : (
+                    <p style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
 
-        {/* Loading indicator */}
         {isLoading && (
-          <div style={{ display: 'flex', gap: 12, alignSelf: 'flex-start' }} className="animate-fade-in">
-            <div className="avatar-ai"><Bot size={17} color="#fff" strokeWidth={2} /></div>
-            <div className="bubble-ai" style={{ padding: '13px 17px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div className="wave-bars">
-                <span /><span /><span /><span /><span />
-              </div>
-              <span style={{ fontSize: 12, color: 'var(--text-3)' }}>thinking…</span>
+          <div style={{ display: 'flex', gap: 10, alignSelf: 'flex-start' }} className="animate-fade-in">
+            <div className="avatar-ai"><Bot size={16} color="#fff" strokeWidth={2} /></div>
+            <div className="bubble-ai" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="wave-bars"><span /><span /><span /><span /><span /></div>
+              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>thinking…</span>
             </div>
           </div>
         )}
-
         <div ref={endRef} />
       </div>
 
-      {/* ── Quick Prompt Pills ───────────────────── */}
+      {/* Quick prompts */}
       {!isComplete && (
-        <div style={{ padding: '0 28px 8px', flexShrink: 0 }}>
+        <div style={{ padding: '0 24px 6px', flexShrink: 0 }}>
           <div className="pills-strip">
             {QUICK_PROMPTS.map((qp, idx) => (
-              <button
-                key={idx}
-                className="prompt-pill"
-                onClick={() => setInput(qp)}
-              >
-                <Zap size={10} style={{ flexShrink: 0, display: 'inline', marginRight: 3 }} />
-                {qp.slice(0, 52)}…
+              <button key={idx} className="prompt-pill" onClick={() => setInput(qp)}>
+                <Zap size={9} style={{ flexShrink: 0, display: 'inline', marginRight: 2 }} />
+                {qp.slice(0, 48)}…
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Input Bar ────────────────────────────── */}
+      {/* Input bar */}
       <div className="glass" style={{
-        padding: '14px 20px',
-        display: 'flex',
-        gap: 10,
-        borderLeft: 'none', borderRight: 'none', borderBottom: 'none',
-        borderRadius: 0,
-        flexShrink: 0,
+        padding: '12px 20px', display: 'flex', gap: 8,
+        borderLeft: 'none', borderRight: 'none', borderBottom: 'none', borderRadius: 0, flexShrink: 0,
       }}>
         <textarea
           ref={inputRef}
           className="textarea-input"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={
-            isComplete
-              ? 'Interview complete. View your evaluation report above.'
-              : 'Type your technical response… (Enter to send, Shift+Enter for newline)'
-          }
+          placeholder={isComplete ? 'Interview complete — view your report above.' : 'Type your response… (Enter to send)'}
           disabled={isComplete || isLoading}
           rows={1}
-          style={{ minHeight: 44, maxHeight: 120, lineHeight: 1.5 }}
+          style={{ minHeight: 42, maxHeight: 110, lineHeight: 1.5 }}
         />
-        <button
-          className="btn-primary"
-          onClick={handleSubmit}
-          disabled={isComplete || isLoading || !input.trim()}
-          style={{ height: 44, padding: '0 18px', flexShrink: 0 }}
-        >
-          <Send size={15} />
-          Send
+        <button className="btn-primary" onClick={handleSubmit} disabled={isComplete || isLoading || !input.trim()} style={{ height: 42, padding: '0 16px', flexShrink: 0 }}>
+          <Send size={14} />
         </button>
       </div>
     </main>
