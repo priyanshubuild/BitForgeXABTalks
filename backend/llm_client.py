@@ -116,6 +116,18 @@ def simulate_llm_response(system_prompt: str, messages: List[Dict[str, str]]) ->
         ("Day 31 - Capstone", "Finally, regarding your Capstone Project on Day 31: If your RAG system returns hallucinated answers, what exact debugging steps do you take to isolate whether it's a retrieval failure or a generation failure?")
     ]
 
+    # Check if there are retrieved memory facts in the system prompt
+    fact_mention = ""
+    if "### RETRIEVED CANDIDATE FACTS & CONTEXT FROM MEMORY" in system_prompt:
+        lines = system_prompt.split("\n")
+        for line in lines:
+            if line.strip().startswith("- Fact:"):
+                fact_content = line.replace("- Fact:", "").strip()
+                # Clean up cognitive pattern annotation if present
+                fact_content = re.sub(r'\(Cognitive Pattern:.*?\)', '', fact_content).strip()
+                fact_mention = f" [Fact Guided Follow-up: We recall '{fact_content[:60]}...']"
+                break
+
     if user_msg_count < len(questions):
         day_label, q_text = questions[user_msg_count]
         # Extract day number
@@ -125,8 +137,13 @@ def simulate_llm_response(system_prompt: str, messages: List[Dict[str, str]]) ->
         if last_user_msg:
             reply_prefix = f"Thank you for that explanation regarding '{last_user_msg[:40]}...'. "
         
+        # Append the fact-guided mention to show memory retrieval is working
+        final_reply = f"{reply_prefix}{q_text}"
+        if fact_mention:
+            final_reply += f"{fact_mention}"
+
         return {
-            "reply": f"{reply_prefix}{q_text}",
+            "reply": final_reply,
             "is_complete": False,
             "day_covered": day_num,
             "feedback": None

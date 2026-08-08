@@ -278,7 +278,35 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
 
     session["messages"].append({"role": "user", "content": user_message})
 
-    llm_res = call_llm(session["system_prompt"], session["messages"])
+    # 4. Search memory graph using Breeth Client
+    retrieved_facts = []
+    search_query = f"{candidate_name} {day_topic_str}"
+    try:
+        search_res = breeth_client.search(query=search_query, group_id=session_id, limit=5)
+        if search_res and isinstance(search_res, dict) and "edges" in search_res:
+            for edge in search_res["edges"]:
+                fact_content = edge.get("fact") or edge.get("content") or ""
+                intent_meta = edge.get("intent_meta") or {}
+                cognitive_pattern = intent_meta.get("cognitive_pattern") or ""
+                
+                digest_item = f"- Fact: {fact_content}"
+                if cognitive_pattern:
+                    digest_item += f" (Cognitive Pattern: {cognitive_pattern})"
+                retrieved_facts.append(digest_item)
+    except Exception as search_err:
+        print(f"[Breeth Log] Search failed: {search_err}")
+
+    # 5. Inject retrieved facts to system prompt context for current turn
+    system_prompt = session["system_prompt"]
+    if retrieved_facts:
+        print(f"[Breeth Log] Retrieved {len(retrieved_facts)} facts for query '{search_query}'. Injecting context into turn prompt.")
+        facts_block = (
+            "\n\n### RETRIEVED CANDIDATE FACTS & CONTEXT FROM MEMORY (Do not ask about things already answered; refer to or probe these facts if relevant to show continuity):\n"
+            + "\n".join(retrieved_facts)
+        )
+        system_prompt += facts_block
+
+    llm_res = call_llm(system_prompt, session["messages"])
 
     reply_text = llm_res.get("reply", "Could you elaborate further on your approach?")
     is_complete = llm_res.get("is_complete", False)
