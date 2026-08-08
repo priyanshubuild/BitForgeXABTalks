@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
 from backend.interview_engine import start_session, process_turn
+from backend.session_store import list_sessions
 
 app = FastAPI(
     title="AI Interview Agent API",
@@ -37,11 +38,22 @@ class InterviewResponse(BaseModel):
 @app.get("/health")
 @app.get("/api/health")
 def health_check():
+    active = list_sessions()
     return {
         "status": "ok",
         "service": "AI Interview Agent Backend",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "active_sessions": len(active),
     }
+
+@app.get("/api/sessions")
+def debug_sessions():
+    """
+    DEV-ONLY: Lists all session IDs currently persisted in SQLite.
+    Use this to confirm the sessionId sent by the frontend matches one here.
+    """
+    active = list_sessions()
+    return {"session_ids": active, "count": len(active)}
 
 # Single Endpoint POST /api/interview
 @app.post("/api/interview", response_model=InterviewResponse)

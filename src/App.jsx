@@ -143,44 +143,60 @@ export default function App() {
       } catch (e) { console.warn('Backend turn failed, using simulation', e); }
     }
 
-    // Simulation fallback turn
+    // Simulation fallback turn (backend unreachable)
+    // NOTE: This path MUST NOT echo the candidate's answer back as a template.
+    //       The backend LLM path is responsible for real evaluation — this is
+    //       a last-resort stub that shows honest probing behavior, not fake praise.
     setTimeout(() => {
-      const nextTurn    = questionsAsked + 1;
+      const nextTurn = questionsAsked + 1;
       setQuestionsAsked(nextTurn);
 
       const tidx   = (nextTurn - 1) % (targetDays.length || 1);
       const curDay = targetDays[tidx] || targetDays[0];
       if (curDay) setDaysCovered(prev => new Set([...prev, curDay.day]));
 
+      const wordCount = text.trim().split(/\s+/).length;
+      const isVague   = wordCount < 20;
+
       if (nextTurn >= 8 && (daysCovered?.size ?? 0) >= 3) {
         const mockFb = {
-          summary: `${activeCandidate.member.name} demonstrated strong competency across vector embeddings, retrieval engines, prompt engineering, and multi-agent workflows — showing genuine implementation depth.`,
+          summary: `${activeCandidate.member.name} participated across multiple curriculum areas. Note: this evaluation was generated in offline simulation mode — for an accurate report, ensure the backend is running.`,
           strengths: [
-            'Clear mental models for text chunking, embedding similarity, and ChromaDB metadata filtering',
-            'Practical FastAPI session management and context-window optimization experience',
-            'Solid grasp of multi-agent routing and MCP tool standardization benefits',
+            'Engaged with multiple curriculum topic areas across the session.',
+            'Provided responses that spanned early and late-stage curriculum days.',
           ],
           gaps: [
-            'Container observability probes and rolling-restart strategies need more depth (Day 28–29)',
-            'Token cost optimization and retrieval precision tuning could be more concrete',
+            'Backend was unreachable — real LLM evaluation and answer analysis was not available.',
+            'Depth of answers could not be verified without live LLM evaluation.',
           ],
           next: [
-            'Implement hybrid BM25 + dense re-ranking (Cohere Rerank) for RAG optimization',
-            'Explore OpenTelemetry distributed tracing across FastAPI + multi-agent pipelines',
+            'Start the backend (uvicorn backend.main:app --reload --port 8001) and retry for a real evaluation.',
+            'Review curriculum days with skipped or failed missions for targeted improvement.',
           ],
         };
-        setMessages([...updated, { role: 'assistant', content: 'That concludes our technical evaluation. Thank you for walking me through your AI Cohort journey — it\'s been a genuinely insightful conversation.' }]);
+        setMessages([...updated, { role: 'assistant', content: "That concludes our session. Thank you for your time — please note this was a simulated offline session. For a real evaluation with adaptive questioning, please ensure the backend server is running." }]);
         setIsComplete(true);
         setFeedback(mockFb);
         setShowFeedback(true);
-      } else {
-        const followUps = [
-          `Good answer regarding "${text.slice(0, 35)}…". Let's dig deeper — on Day ${curDay?.day ?? 7} (${curDay?.title ?? 'Core AI'}): what specific engineering decisions surprised you most, and how did you validate your approach?`,
-          `Interesting perspective. Following up on Day ${curDay?.day ?? 8}: if you had to optimize this for production scale — what bottleneck would you tackle first, and why?`,
-          `That makes sense. Probing Day ${curDay?.day ?? 12} a bit further: what does a failure scenario look like, and what observability did you put in place to detect it?`,
-          `Got it. Shifting focus to Day ${curDay?.day ?? 16}: how would a senior engineer reviewing your code raise concerns about this approach, and what would your rebuttal be?`,
+      } else if (isVague) {
+        // Short answer — cross-examine, don't praise
+        const probes = [
+          `That was quite brief. Can you walk me through a concrete implementation detail — specifically, what code or configuration did you actually write for Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})?`,
+          `I need more technical depth here. What specific tool or library did you use, and what problem did it solve for you on Day ${curDay?.day ?? 8}?`,
+          `Can you be more precise? For Day ${curDay?.day ?? 12} (${curDay?.title ?? 'this module'}), what was the hardest part to get right technically, and how did you debug it?`,
+          `That's a high-level summary — let's get into the specifics. What does the actual implementation look like for Day ${curDay?.day ?? 16}?`,
         ];
-        const reply = followUps[(nextTurn - 2) % followUps.length];
+        const reply = probes[(nextTurn - 2) % probes.length];
+        setMessages([...updated, { role: 'assistant', content: reply }]);
+      } else {
+        // Substantive answer — probe deeper without echoing it back
+        const deepDive = [
+          `For Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'}): you mentioned an implementation approach — how did you handle edge cases or failure modes in that design?`,
+          `On Day ${curDay?.day ?? 8}: what would break first at 10x scale, and what would you change architecturally to address it?`,
+          `Probing Day ${curDay?.day ?? 12} further: if a senior engineer reviewed your solution, what criticism would they likely raise — and how would you address it?`,
+          `For Day ${curDay?.day ?? 16}: how did you validate correctness of your implementation — what does your test coverage or evaluation metric look like?`,
+        ];
+        const reply = deepDive[(nextTurn - 2) % deepDive.length];
         setMessages([...updated, { role: 'assistant', content: reply }]);
       }
       setIsLoading(false);

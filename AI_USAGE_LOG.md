@@ -91,3 +91,70 @@ This document serves as the log for prompts and design decisions made using **An
 - Moved default connection endpoints to port `8001` to resolve local CUPS printer daemon overlaps on port `8000`.
 - Built the minimal chat runner in `/frontend` running on port `3002` for fast testing and manual validations.
 - Refactored the end-of-interview sequence to run a dedicated, schema-validated feedback LLM call with a 1-retry wrapper and a hard-coded fallback object on parsing crashes.
+
+---
+
+## 🐛 Phase 6: Critical Bug Fixes — Session Persistence & Evaluation Pipeline
+*In this phase, we diagnosed and fixed two confirmed production bugs from a live test session (Sarah Johnson, sess-178620861): session state being wiped on hot-reload, and the interviewer echoing template strings instead of evaluating answers.*
+
+### Prompts Used
+> The interview agent has two confirmed bugs from a live test session (sess-178620861, candidate Sarah Johnson). Fix the root cause of each, don't paper over the symptom.
+>
+> BUG 1: Evaluation report says "Session not found" even though the same session was live and working seconds earlier in the chat UI.
+> Is the session store a plain in-memory object/dict/Map at module scope? If the dev server uses hot-reload, any file saved resets module state and wipes the dict...
+>
+> BUG 2: The interviewer always generates "Good answer regarding [their words]..." follow-ups regardless of whether the answer was correct, off-topic, or vague. Fix so the LLM judges answers before generating follow-ups.
+
+### Files Created / Modified
+- `/backend/session_store.py` *(new — SQLite-backed session persistence)*
+- `/backend/interview_engine.py` *(evaluate_answer(), build_follow_up_prompt(), SQLite wiring)*
+- `/backend/llm_client.py` *(call_llm_for_evaluation(), gemini-1.5-flash fallback model)*
+- `/backend/main.py` *(GET /api/sessions debug endpoint, active_sessions in health check)*
+- `/backend/test_evaluator.py` *(new — 4-assertion test for evaluation pipeline)*
+- `/src/App.jsx` *(removed "Good answer regarding..." echo-template from frontend simulation)*
+
+### Core Accomplishments
+- **BUG 1 Fixed:** Replaced `sessions = {}` module-scope dict with `backend/session_store.py` (SQLite). Sessions now survive hot-reloads and serverless cold starts. Missing sessions now raise `HTTPException(404)` instead of silently returning a fake report.
+- **BUG 2 Fixed:** Added `evaluate_answer()` — calls LLM before every follow-up to judge: `on_topic_strong | on_topic_vague | off_topic | wrong`. Added `_heuristic_evaluate()` — keyword-overlap local fallback used when both LLMs are offline. Added `call_llm_for_evaluation()` — never falls back to simulation so garbled interview questions can't be mistaken for evaluation JSON.
+- `build_follow_up_prompt()` injects evaluator judgment into system prompt, forcing LLM to react to the assessment.
+- 4/4 assertion tests pass: off-topic answer → `off_topic` + `call_out_and_reask`; on-topic strong answer → `on_topic_strong`.
+- Added `/api/sessions` debug endpoint to list active SQLite session IDs.
+
+---
+
+## 🔬 Phase 7: Evaluation Depth, Topic State Machine & Breeth Memory Fix
+*In this phase, we fixed three remaining issues confirmed from a second live transcript (Sarah Johnson, sess-178620181): evaluation was checking length not topical relevance, follow-ups were advancing to the next day even when the current answer was rejected, and the Breeth memory panel showed "No memories yet" after real Q&A exchanges.*
+
+### Prompts Used
+> Round 1 fixes partially landed. Three issues remain confirmed from a live transcript:
+>
+> ISSUE 1: Evaluation is checking length/vagueness, not topical relevance. Every candidate answer was about the wrong topic entirely — the interviewer's responses never say "that's not what I asked" — only generic "need more depth" phrasing.
+>
+> ISSUE 2: "Follow-ups" are actually just the next day in the queue, not a real re-probe. Every single turn advances to the next day (7→8→10→12) regardless of whether the previous answer was accepted or rejected.
+>
+> ISSUE 3: Breeth memory panel shows "No memories yet" after real Q&A exchanges happened.
+
+### Files Modified
+- `/backend/interview_engine.py` *(eval prompt, topic state machine, Breeth search fix, heuristic ordering)*
+- `/backend/llm_client.py` *(call_llm now tries gemini-2.0-flash → gemini-1.5-flash → Anthropic)*
+
+### Core Accomplishments
+
+**ISSUE 1 — Evaluation checks length not relevance:**
+- `evaluate_answer()` system prompt now opens with `"The question was about: '{topic_name}'"` and includes all curriculum objectives for that day.
+- Instructs LLM to check **topical relevance first** — if the answer discusses a different concept, the `follow_up_instruction` must name the mismatch explicitly (e.g., "That answer described session state management, not vector database metadata filtering").
+- User message now includes `"THIS QUESTION IS ABOUT: {topic_name}"` so the LLM has zero ambiguity.
+- Heuristic `_heuristic_evaluate()` now checks `hit_ratio < 0.10` **before** `word_count < 15` — short off-topic answers are correctly flagged `off_topic`, not `on_topic_vague`.
+
+**ISSUE 2 — Topic state machine:**
+- `start_session()` now stores `current_topic_idx=0`, `topic_attempts=0`, `MAX_TOPIC_ATTEMPTS=2` in session state.
+- `process_turn()` implements the state machine: advance only when `judgment == "on_topic_strong"` OR `topic_attempts >= 2`. On rejection, increments counter and prepends `"STAY ON Day N (Title)."` to `follow_up_instruction`.
+- `build_follow_up_prompt()` includes the current topic name, attempt counter (`1/2`), and explicit `"NEVER advance to a new topic unless instructed above"` rule in every LLM call.
+- Topic gaps (cap-exceeded topics) recorded in `session["topic_gaps"]` and available for final feedback.
+
+**ISSUE 3 — Breeth memory panel empty:**
+- Root cause: Breeth `write_episode` returns HTTP 200 immediately but runs async (~15s propagation). Searching in the same request always finds nothing from the current turn.
+- Fix: search query changed from `"{name} {current_topic}"` to `"{name} AI interview"` — broad query that retrieves facts from **all previous turns** (already propagated).
+- `source_node`/`target_node` UUID labels replaced with `candidate_name` and first 3 words of the fact string — readable chip labels in the memory panel.
+- Added explicit `[Breeth]` console logs before/after both write and search so network errors surface in server logs immediately.
+
