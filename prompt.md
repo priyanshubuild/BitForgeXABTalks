@@ -53,4 +53,11 @@ This file maintains the prompt history and AI agent usage log for the **AI Inter
 - Updated the FastAPI backend `/api/interview` response schema to optionally return search memories containing source/target nodes, facts, and cognitive patterns
 - Implemented Candidate Memory Graph sidebar panels in both the primary dashboard (`src/App.jsx`) and local test client (`frontend/src/App.jsx`) to display learned candidate facts in real-time
 
+### Prompt 10: Apple-Inspired UI Overhaul & Contrast Refinement
+- Redesigned visual styles across the dashboard and test client with clean Apple SF Pro system fonts, OLED dark rules, and crisp minimalist spacing.
+- Implemented global Light/Dark mode switcher buttons that synchronize theme states dynamically using custom CSS variables.
+- Fixed glass card background opacities and high contrast colors in light theme to resolve text readability, button disabled states, and memory panel layout issues.
+- Successfully ran turn-by-turn simulated validation tests confirming clean execution.
+
+
 

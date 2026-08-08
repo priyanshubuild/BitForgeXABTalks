@@ -116,6 +116,51 @@
 
 ---
 
+---
+
+### Phase 7: Breeth Memory Integration Scaffolding
+**Prompt:**
+> I want to add an optional memory layer using Breeth (docs at docs.thebreeth.com, base URL https://api.thebreeth.com/v1)...
+
+**Actions & Results:**
+- Added `BREETH_API_KEY` configuration variables.
+- Created `backend/breeth_client.py` using `httpx` to access Breeth endpoints with robust 429 quota limit toleration.
+- Created standalone validation tests `test_breeth.py`.
+
+---
+
+### Phase 8: RAG Memory Retrieval Loop
+**Prompt:**
+> Use Breeth's search to make follow-up questions smarter...
+
+**Actions & Results:**
+- Integrated `BreethClient` inside the backend `process_turn()` loop in `backend/interview_engine.py`.
+- Formulated search queries dynamically and injected retrieved candidate facts and cognitive patterns into Claude's system prompt context.
+
+---
+
+### Phase 9: Real-time Memory Graph UI Sidebar
+**Prompt:**
+> Add a small panel to the frontend chat UI, next to the transcript, that shows a running list of "things learned about this candidate" during the interview...
+
+**Actions & Results:**
+- Extended `/api/interview` endpoint schema to return a list of memories containing source, target, facts, and cognitive patterns.
+- Built Candidate Memory Graph sidebar sections in the dashboard and local test client to dynamically present candidate facts.
+
+---
+
+### Phase 10: Apple Minimalist UX Overhaul & Theme Switching
+**Prompt:**
+> ui and ux got fucked fix it and make moderna and great ui and ux
+
+**Actions & Results:**
+- Refactored index stylesheets to implement Apple system font stacks, OLED dark mode, and Apple light mode.
+- Designed global Light/Dark mode switcher buttons that synchronize states via data attributes.
+- Solved card transparency and contrast conflicts in light mode to guarantee clear legibility.
+- Executed turn-by-turn simulation script to confirm end-to-end correctness.
+
+---
+
 ## 🚀 Live Deployment Checklist
 - [x] Public GitHub Repository: `https://github.com/priyanshubuild/BitForgeXABTalks`
 - [x] AI Usage Log: [`PROMPTS.md`](file:///c:/Users/PRINCE/OneDrive/Desktop/BitForge/BitForgeXABTalks/PROMPTS.md) & [`prompt.md`](file:///c:/Users/PRINCE/OneDrive/Desktop/BitForge/BitForgeXABTalks/prompt.md)
