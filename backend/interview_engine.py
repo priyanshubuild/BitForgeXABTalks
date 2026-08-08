@@ -648,8 +648,8 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
 
     if is_complete:
         feedback_obj = generate_feedback_with_retry(session)
-        return {"reply": reply_text, "done": True, "feedback": feedback_obj, "memories": memories_list}
-    return {"reply": reply_text, "done": False, "memories": memories_list}
+        return {"reply": reply_text, "done": True, "feedback": feedback_obj, "memories": memories_list, "answer_judgment": answer_judgment}
+    return {"reply": reply_text, "done": False, "memories": memories_list, "answer_judgment": answer_judgment}
 
 
 def validate_feedback_shape(res: Any) -> Optional[Dict[str, Any]]:

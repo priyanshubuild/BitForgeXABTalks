@@ -1,19 +1,19 @@
 # AI Interview Agent — AI Usage & Prompt Log 📜🤖
 
-> **Hackathon Submission Requirement**: Full log of prompts and AI interactions used to build the **AI Interview Agent** for the AI Cohort Hackathon.
+> **Hackathon Submission Requirement**: Full log of prompts, AI interactions, design decisions, and development phases used to build the **AI Interview Agent** for the AI Cohort Hackathon.
 
 ---
 
 ## 📌 Project Overview
 - **Project Name**: AI Technical Interview Agent
 - **Backend Stack**: Python, FastAPI, Pydantic, Google Gemini 2.0 Flash SDK, Anthropic Claude SDK, Uvicorn, SQLite
-- **Frontend Stack**: React 18, Vite, Lucide React, Canvas Confetti, Glassmorphism CSS Design System
+- **Frontend Stack**: React 18, Vite, Lucide React, React Markdown, Remark-GFM, Glassmorphism CSS Design System
 - **Memory Layer**: Breeth API (`POST /v1/episodes`, `POST /v1/search`) for candidate knowledge graph
 - **Single API Contract**: `POST /api/interview` per `technical-spec.md`
 
 ---
 
-## 📑 Chronological Prompt Log
+## 📑 Chronological Prompt & Development Log
 
 ### Phase 1: Environment Initialization & Git Workflow
 **Prompt:**
@@ -42,13 +42,19 @@
 > - Final response with structured feedback: summary, strengths[], gaps[], next[]
 > Set up the project structure first: /backend, /frontend, requirements.txt, .env.example, README.md. Don't write the interview logic yet — scaffold the project, set up FastAPI health check, and confirm technical-spec.md contract by summarizing it back to me.
 
-**Actions & Results:**
-- Inspected `technical-spec.md`, `curriculum.json`, and `candidates.json`.
-- Created `requirements.txt` with `fastapi`, `uvicorn`, `pydantic`, `python-dotenv`, `anthropic`.
-- Created `.env.example` for `ANTHROPIC_API_KEY`.
-- Created `backend/main.py` with CORS middleware, health routes (`GET /health`), and data model schemas.
-- Scaffolded `frontend/index.html` test UI.
-- Summarized the API contract back to the user.
+**Files Created / Modified:**
+- `/backend/main.py` — FastAPI server with CORS middleware, health routes (`GET /health`), Pydantic schemas
+- `/backend/schemas.py` — Input payload and target output schemas
+- `/frontend/index.html` — Test UI scaffold
+- `requirements.txt` — `fastapi`, `uvicorn`, `pydantic`, `python-dotenv`, `anthropic`
+- `.env.example` — `ANTHROPIC_API_KEY` configuration
+
+**Core Accomplishments:**
+- Inspected `technical-spec.md`, `curriculum.json`, and `candidates.json`
+- Set up a FastAPI server with CORS middleware enabled
+- Defined schemas for input payloads and target outputs matching the specs
+- Established health-check monitoring routes
+- Summarized the API contract back to the user
 
 ---
 
@@ -63,11 +69,17 @@
 > Use Anthropic API (model claude-sonnet-4-6) via anthropic Python SDK in an isolated module.
 > Show me the full flow with sample curl requests/responses.
 
-**Actions & Results:**
-- Created `backend/llm_client.py` for Anthropic LLM calls with simulation fallbacks.
-- Created `backend/interview_engine.py` to manage in-memory session state, topic selection, and the 8-question / 4-day minimum rule.
-- Updated `backend/main.py` routing `POST /api/interview` to initialization vs turn processing.
-- Verified sample `curl` commands for initial turn, follow-up turn, and final feedback response turn.
+**Files Created / Modified:**
+- `/backend/llm_client.py` — Anthropic LLM calls with simulation fallbacks
+- `/backend/interview_engine.py` — In-memory session state, topic selection, 8-question / 4-day minimum rule
+- `/backend/main.py` — Routing `POST /api/interview` to initialization vs turn processing
+
+**Core Accomplishments:**
+- Designed the algorithm that selects 4–5 target days based on the candidate's passed and skipped missions
+- Engineered the core technical system prompt specifying constraints (behaving like a senior interviewer)
+- Enforced the hard minimum count constraint (8 questions and 4 days covered) in code before terminating sessions
+- Created fallback simulators for offline evaluation testing
+- Verified sample `curl` commands for initial turn, follow-up turn, and final feedback response turn
 
 ---
 
@@ -75,11 +87,19 @@
 **Prompt:**
 > show me the preview of the app now, till now what we made? what frontend stack we used? we have to make and deplyable website, make an react site
 
-**Actions & Results:**
-- Built a React 18 + Vite frontend in `/src` and `/frontend`.
-- Designed glassmorphic dark theme (`src/index.css`) with HSL colors and Google Fonts (`Plus Jakarta Sans` & `Space Grotesk`).
-- Implemented components: Header & Candidate Dropdown, Candidate Mission Radar & Requirement Counters, Real-time Dialogue Feed, Evaluation Report Modal with Confetti & Copy Markdown.
-- Configured hybrid connection: connects live to `http://localhost:8001/api/interview` when backend is online, and includes an embedded fallback engine for static deployments.
+**Files Created / Modified:**
+- `/src/App.jsx` — Main application component
+- `/src/components/Header.jsx` — Header & Candidate Dropdown
+- `/src/components/CandidateSidebar.jsx` — Candidate Mission Radar & Requirement Counters
+- `/src/components/ChatStream.jsx` — Real-time Dialogue Feed
+- `/src/components/FeedbackModal.jsx` — Evaluation Report Modal with Confetti & Copy Markdown
+- `/src/index.css` — Glassmorphic dark theme with HSL colors and Google Fonts
+
+**Core Accomplishments:**
+- Built a React 18 + Vite frontend in `/src` and `/frontend`
+- Designed glassmorphic dark theme with `Plus Jakarta Sans` & `Space Grotesk` fonts
+- Configured hybrid connection: connects live to `http://localhost:8001/api/interview` when backend is online, includes embedded fallback engine for static deployments
+- Built premium glassmorphic dashboard with requirement counters and progress visuals
 
 ---
 
@@ -92,7 +112,7 @@
 > also maintain prompt.md file throughout the code
 
 **Actions & Results:**
-- Created and maintained `PROMPTS.md` and `AI_USAGE_LOG.md` tracking all prompt iterations, architectural decisions, and tool executions.
+- Created and maintained `PROMPTS.md` tracking all prompt iterations, architectural decisions, and tool executions
 
 ---
 
@@ -102,11 +122,18 @@
 >
 > Now implement the end-of-interview step. When the interview engine decides the interview is done, make one final LLM call whose only job is to produce structured feedback: "summary" string, "strengths" array, "gaps" array, and "next" array. Force this into valid JSON reliably. Add basic error handling: if the LLM call fails or returns malformed JSON, retry once, then fall back to a minimal valid feedback object rather than crashing the endpoint.
 
-**Actions & Results:**
-- Set up local Python virtual environment (`venv`) and node modules via `npm install`.
-- Configured port `8001` for the FastAPI backend.
-- Refactored `backend/interview_engine.py` to add `generate_feedback_with_retry` and `validate_feedback_shape`.
-- Verified end-to-end integration and validated outputs under normal flow and fallbacks.
+**Files Created / Modified:**
+- `/src/App.jsx` — Frontend setup
+- `/frontend/src/App.jsx` — Minimal chat runner for testing
+- `/frontend/vite.config.js` — Frontend dev config
+- `/backend/interview_engine.py` — `generate_feedback_with_retry`, `validate_feedback_shape`
+
+**Core Accomplishments:**
+- Set up local Python virtual environment (`venv`) and node modules via `npm install`
+- Moved default connection endpoints to port `8001` to resolve local CUPS printer daemon overlaps on port `8000`
+- Built the minimal chat runner in `/frontend` running on port `3002` for fast testing
+- Refactored end-of-interview sequence: dedicated, schema-validated feedback LLM call with 1-retry wrapper and hard-coded fallback object on parsing crashes
+- Verified end-to-end integration and validated outputs under normal flow and fallbacks
 
 ---
 
@@ -114,10 +141,15 @@
 **Prompt:**
 > I want to add an optional memory layer using Breeth (docs at docs.thebreeth.com, base URL https://api.thebreeth.com/v1)...
 
-**Actions & Results:**
-- Added `BREETH_API_KEY` configuration variables.
-- Created `backend/breeth_client.py` using `requests` to access Breeth endpoints with robust 429 quota limit toleration.
-- Created standalone validation tests `test_breeth.py`.
+**Files Created / Modified:**
+- `/backend/breeth_client.py` *(new)* — `write_episode` and `search` methods with graceful `429` quota limit toleration
+- `.env` / `.env.example` — Added `BREETH_API_KEY`
+- `test_breeth.py` — Standalone validation tests
+
+**Core Accomplishments:**
+- Created `backend/breeth_client.py` using `requests` to access Breeth endpoints
+- Implemented robust 429 quota limit toleration (returns `None` instead of throwing exceptions)
+- Created and executed standalone validation tests to verify API key connectivity
 
 ---
 
@@ -125,9 +157,13 @@
 **Prompt:**
 > Use Breeth's search to make follow-up questions smarter...
 
-**Actions & Results:**
-- Integrated `BreethClient` inside the backend `process_turn()` loop in `backend/interview_engine.py`.
-- Formulated search queries dynamically and injected retrieved candidate facts and cognitive patterns into the LLM system prompt context.
+**Files Modified:**
+- `/backend/interview_engine.py` — `process_turn()` Breeth integration
+
+**Core Accomplishments:**
+- Integrated `BreethClient` inside the backend `process_turn()` loop
+- Implemented smart substantive answer analysis (`is_substantive_answer()`) to filter out trivial replies and skips to preserve intent budget
+- Formulated search queries dynamically and injected retrieved candidate facts and cognitive patterns into the LLM system prompt context
 
 ---
 
@@ -135,9 +171,13 @@
 **Prompt:**
 > Add a small panel to the frontend chat UI, next to the transcript, that shows a running list of "things learned about this candidate" during the interview...
 
-**Actions & Results:**
-- Extended `/api/interview` endpoint schema to return a list of memories containing source, target, facts, and cognitive patterns.
-- Built Candidate Memory Graph sidebar sections in the dashboard to dynamically present candidate facts.
+**Files Modified:**
+- `/backend/main.py` — Extended `/api/interview` endpoint schema to return memories
+- `/src/App.jsx` — Memory Graph sidebar sections
+
+**Core Accomplishments:**
+- Extended `/api/interview` response to optionally return search memories containing source/target nodes, facts, and cognitive patterns
+- Built Candidate Memory Graph sidebar panels to dynamically present candidate facts in real-time
 
 ---
 
@@ -145,10 +185,15 @@
 **Prompt:**
 > ui and ux got fucked fix it and make modern and great ui and ux
 
-**Actions & Results:**
-- Refactored index stylesheets to implement Apple system font stacks, OLED dark mode, and Apple light mode.
-- Designed global Light/Dark mode switcher buttons that synchronize states via data attributes.
-- Solved card transparency and contrast conflicts in light mode to guarantee clear legibility.
+**Files Modified:**
+- `/src/index.css` — Apple system fonts, OLED dark mode, Apple light mode
+- Multiple component files for contrast fixes
+
+**Core Accomplishments:**
+- Refactored stylesheets to implement Apple system font stacks, OLED dark mode, and Apple light mode
+- Designed global Light/Dark mode switcher buttons that synchronize states via data attributes
+- Solved card transparency and contrast conflicts in light mode to guarantee clear legibility
+- Successfully ran turn-by-turn simulated validation tests confirming clean execution
 
 ---
 
@@ -156,12 +201,19 @@
 **Prompt:**
 > strictly follow technical-spec.md, candidates.json and curriculum.md — make best ideal project that actually can win the hackathon. Most unique and great ui and ux — minimal and modern and blurry and glass effects. For completely free, how should it look ideally?
 
-**Actions & Results:**
-- Upgraded `backend/llm_client.py` to support **Google Gemini 2.0 Flash** (completely free) as primary LLM provider, Anthropic Claude as secondary, with a high-quality offline simulation engine as fallback.
-- Added `google-generativeai` to `requirements.txt`.
-- Performed complete rewrite of `src/index.css`: Inter + JetBrains Mono font stack, full CSS token system, glassmorphism utilities, premium animations, chip badges, progress bars, wave loading bars.
-- Rewrote all components: `Header.jsx`, `ChatStream.jsx`, `CandidateSidebar.jsx`, `FeedbackModal.jsx`, `App.jsx`.
-- Verified FastAPI backend starts clean on port 8001; Vite dev server on port 3001.
+**Files Created / Modified:**
+- `/backend/llm_client.py` — Google Gemini 2.0 Flash (free) as primary, Anthropic Claude secondary, offline simulation fallback
+- `requirements.txt` — Added `google-generativeai`
+- `/src/index.css` — Complete rewrite: Inter + JetBrains Mono fonts, CSS token system, glassmorphism, premium animations
+- All `/src/components/*.jsx` — Rewritten for premium aesthetics
+- `/src/App.jsx` — Complete rewrite
+
+**Core Accomplishments:**
+- Upgraded LLM pipeline: Google Gemini 2.0 Flash (free) → Gemini 1.5 Flash fallback → Anthropic Claude → offline simulation
+- Complete CSS design system: custom properties, glassmorphism utilities, chip badges, progress bars, wave loading bars
+- Verified FastAPI backend starts clean on port 8001; Vite dev server on port 3001
+- Tightened backend interview flow so fallback questions stay tied to selected curriculum days
+- Normalized `/api/interview` response contract to always return `reply`, `done`, `feedback`, and `memories`
 
 ---
 
@@ -175,17 +227,17 @@
 > BUG 2: The interviewer generates "Good answer regarding [their words]..." follow-ups regardless of whether the answer is correct, off-topic, or vague. Fix so the LLM explicitly evaluates answer quality BEFORE generating a follow-up. Banned patterns: any echo-template. Off-topic answers must trigger a call-out and re-ask.
 
 **Files Created / Modified:**
-- `/backend/session_store.py` *(new — SQLite-backed store: `get_session`, `set_session`, `delete_session`, `list_sessions`)*
-- `/backend/interview_engine.py` *(evaluate_answer, _heuristic_evaluate, build_follow_up_prompt, SQLite wiring)*
-- `/backend/llm_client.py` *(call_llm_for_evaluation — no simulation fallback, gemini-1.5-flash model fallback)*
-- `/backend/main.py` *(GET /api/sessions debug endpoint, active_sessions count in health check)*
-- `/backend/test_evaluator.py` *(new — 4-assertion test for off-topic and on-topic detection)*
-- `/src/App.jsx` *(removed "Good answer regarding..." echo-template from frontend simulation)*
+- `/backend/session_store.py` *(new)* — SQLite-backed store: `get_session`, `set_session`, `delete_session`, `list_sessions`
+- `/backend/interview_engine.py` — `evaluate_answer()`, `_heuristic_evaluate()`, `build_follow_up_prompt()`, SQLite wiring
+- `/backend/llm_client.py` — `call_llm_for_evaluation()` (no simulation fallback), gemini-1.5-flash model fallback
+- `/backend/main.py` — `GET /api/sessions` debug endpoint, `active_sessions` count in health check
+- `/backend/test_evaluator.py` *(new)* — 4-assertion test for off-topic and on-topic detection
+- `/src/App.jsx` — Removed "Good answer regarding..." echo-template from frontend simulation
 
 **Core Accomplishments:**
-- **BUG 1:** Replaced `sessions = {}` with SQLite. Sessions survive `uvicorn --reload` and serverless cold starts. Verified with `importlib.reload()` simulation test.
-- **BUG 2:** `evaluate_answer()` calls `call_llm_for_evaluation()` before every follow-up. Returns `{judgment, reasoning, next_action, follow_up_instruction}`. Injected into system prompt via `build_follow_up_prompt()`. `_heuristic_evaluate()` handles LLM-unavailable case using tool-name keyword matching (not generic word overlap). 4/4 assertion tests pass.
-- Added `GET /api/sessions` and enriched `/api/health` to expose `active_sessions` count for debugging.
+- **BUG 1 Fixed:** Replaced `sessions = {}` module-scope dict with SQLite (`backend/session_store.py`). Sessions survive `uvicorn --reload` and serverless cold starts. Missing sessions raise `HTTPException(404)`.
+- **BUG 2 Fixed:** `evaluate_answer()` calls `call_llm_for_evaluation()` before every follow-up. Returns `{judgment, reasoning, next_action, follow_up_instruction}`. `_heuristic_evaluate()` handles LLM-unavailable case using tool-name keyword matching. `build_follow_up_prompt()` injects evaluator judgment into system prompt. 4/4 assertion tests pass.
+- Added `GET /api/sessions` debug endpoint and enriched `/api/health` with `active_sessions` count.
 
 ---
 
@@ -200,40 +252,26 @@
 > ISSUE 3: Breeth memory panel shows "No memories yet" after real Q&A exchanges happened. Diagnosed: Breeth write_episode is async (propagates ~15s), so searching in the same request always finds nothing. Also source_node/target_node are raw UUIDs — unreadable in the panel.
 
 **Files Modified:**
-- `/backend/interview_engine.py`
-- `/backend/llm_client.py`
+- `/backend/interview_engine.py` — Eval prompt, topic state machine, Breeth search fix, heuristic ordering
+- `/backend/llm_client.py` — Model fallback chain: gemini-2.0-flash → gemini-1.5-flash → Anthropic
 
 **Core Accomplishments:**
 
 **ISSUE 1 — Topical relevance in evaluation:**
-- `evaluate_answer()` system prompt now opens with `"The question was about: '{topic_name}'"` and includes all curriculum objectives for that day — not just 3.
-- Instructs LLM: "Your FIRST job is topical relevance — does the answer discuss the SAME SUBJECT?" When off-topic, `follow_up_instruction` **must name the actual mismatch** (e.g., "That answer described session state management, not vector database metadata filtering. Re-ask...").
-- User message to evaluator includes `"THIS QUESTION IS ABOUT: {topic_name}"`.
-- Heuristic `_heuristic_evaluate()` now checks `hit_ratio < 0.10` **before** `word_count < 15` — short off-topic answers flagged `off_topic` + `call_out_and_reask`, not `on_topic_vague`.
+- `evaluate_answer()` system prompt now opens with `"The question was about: '{topic_name}'"` and includes all curriculum objectives
+- Instructs LLM: "Your FIRST job is topical relevance — does the answer discuss the SAME SUBJECT?"
+- When off-topic, `follow_up_instruction` must name the actual mismatch explicitly
+- Heuristic `_heuristic_evaluate()` checks `hit_ratio < 0.10` **before** `word_count < 15`
 
 **ISSUE 2 — Topic state machine:**
-- `start_session()` adds `current_topic_idx=0`, `topic_attempts=0`, `MAX_TOPIC_ATTEMPTS=2` to every session.
-- `process_turn()` only advances `current_topic_idx` when `judgment == "on_topic_strong"` OR `topic_attempts >= 2`. On rejection: increments counter, prepends `"STAY ON Day N (Title)."` to follow-up instruction.
-- Cap-exceeded topics recorded in `session["topic_gaps"]` and surfaced in final feedback.
-- `build_follow_up_prompt()` now includes current day name, attempt counter (`e.g., 1/2`), and explicit `"NEVER advance to a new topic unless instructed above"` rule in every LLM system prompt.
+- `start_session()` adds `current_topic_idx=0`, `topic_attempts=0`, `MAX_TOPIC_ATTEMPTS=2`
+- `process_turn()` only advances when `judgment == "on_topic_strong"` OR `topic_attempts >= 2`
+- Cap-exceeded topics recorded in `session["topic_gaps"]` for final feedback
+- `build_follow_up_prompt()` includes current topic, attempt counter, and explicit "NEVER advance" rule
 
-**ISSUE 3 — Breeth memory panel populated:**
-- Root cause confirmed via direct API test: `write_episode` returns 200 with `"mode": "async"` — graph edges queryable only ~15s later.
-- Fix: search query changed from `"{name} {current_topic}"` (same-turn, empty) to `"{name} AI interview"` (broad, finds all prior turns).
-- `source_node`/`target_node` UUID labels replaced: `source_node = candidate_name`, `target_node = first 3 words of fact string` — readable chip labels in memory panel.
-- Explicit `[Breeth]` log lines added before/after both write and search for network failure visibility.
-
----
-
-## 🚀 Live Deployment Checklist
-- [x] Public GitHub Repository: `https://github.com/priyanshubuild/BitForgeXABTalks`
-- [x] AI Usage Log: [`PROMPTS.md`](./PROMPTS.md) & [`AI_USAGE_LOG.md`](./AI_USAGE_LOG.md)
-- [x] Backend API: `POST /api/interview` & `GET /health` & `GET /api/sessions` (port 8001)
-- [x] React Single Page Application with client fallbacks ready for Vercel/Netlify deployment (port 3001)
-- [x] Free LLM: Google Gemini 2.0 Flash (no cost) → Gemini 1.5 Flash fallback → Anthropic Claude → offline simulation
-- [x] Memory Layer: Breeth API (`POST /v1/episodes`, `POST /v1/search`) with async-aware search timing
-- [x] Session Persistence: SQLite (`backend/sessions.db`) — survives hot-reload and serverless cold starts
-- [x] Evaluation Pipeline: LLM topical judgment → topic state machine → explicit mismatch naming
+**ISSUE 3 — Breeth memory populated:**
+- Search query changed from `"{name} {current_topic}"` to `"{name} AI interview"` (broad query finds prior turns)
+- UUID labels replaced with `candidate_name` and first 3 words of fact string
 
 ---
 
@@ -242,28 +280,104 @@
 > Complete reform of the UI and UX. I want the most immersive and modern UI that doesn't feel like an AI slop. Make dark and light mode both visually great and finished. Load ALL 20 candidates from hackathon data. Add a landing page and candidate selection flow. Add markdown rendering in chat. Redesign all components with premium aesthetics.
 
 **Files Created / Modified:**
-- `src/data/candidates.js` *(new — all 20 hackathon candidates + curriculum modules data)*
-- `src/index.css` *(complete rewrite — new design system with landing page, candidate selection, interview layout styles)*
-- `src/components/LandingPage.jsx` *(new — hero section with animated stats, feature cards, tech badges)*
-- `src/components/CandidateSelect.jsx` *(new — searchable grid with 20 candidate cards, progress bars, hover CTAs)*
-- `src/components/Header.jsx` *(rewritten — compact header with back navigation, candidate info, live status)*
-- `src/components/CandidateSidebar.jsx` *(rewritten — SVG circular progress rings, compact topic cards)*
-- `src/components/ChatStream.jsx` *(rewritten — react-markdown rendering, remark-gfm, styled code blocks)*
-- `src/components/FeedbackModal.jsx` *(polished — item count badges, tighter spacing)*
-- `src/App.jsx` *(complete rewrite — 3-page navigation: Landing → Select → Interview)*
-- `README.md` *(rewritten — architecture diagram, requirements checklist, setup guide)*
+- `src/data/candidates.js` *(new)* — All 20 hackathon candidates + curriculum modules data
+- `src/index.css` — Complete rewrite: design system with landing, selection, interview styles
+- `src/components/LandingPage.jsx` *(new)* — Hero with animated stats, feature cards, tech badges
+- `src/components/CandidateSelect.jsx` *(new)* — Searchable grid with 20 candidate cards, progress bars
+- `src/components/Header.jsx` — Rewritten: compact with back nav and candidate info
+- `src/components/CandidateSidebar.jsx` — Rewritten: SVG circular progress rings, compact topic cards
+- `src/components/ChatStream.jsx` — Rewritten: react-markdown + remark-gfm rendering
+- `src/components/FeedbackModal.jsx` — Polished: item count badges, tighter spacing
+- `src/App.jsx` — Complete rewrite: 3-page navigation (Landing → Select → Interview)
+- `README.md` — Rewritten: architecture diagram, requirements checklist
 
 **Core Accomplishments:**
-- **3-Page Navigation Flow**: Landing page → Candidate selection → Interview dashboard, replacing the single-page dropdown approach
-- **All 20 Candidates**: Loaded complete hackathon-provided `candidates.json` data (previously only 4)
-- **Immersive Landing Page**: Gradient hero, animated feature cards, tech stack badges, stats counters
-- **Candidate Selection Grid**: Searchable cards with completion bars, mini stats, and hover interactions
+- **3-Page Navigation**: Landing → Candidate Selection → Interview, replacing single-page dropdown
+- **All 20 Candidates**: Complete hackathon `candidates.json` loaded (previously only 4)
+- **Immersive Landing Page**: Gradient hero, animated feature cards, tech badges, stat counters
+- **Candidate Selection Grid**: Searchable cards with completion bars, mini stats, hover CTAs
 - **Markdown Rendering**: `react-markdown` + `remark-gfm` for bold, code, lists in AI responses
 - **Circular Progress Rings**: SVG-based animated stat circles in sidebar
-- **Design System**: CSS custom properties for consistent dark/light theming, glassmorphism, smooth transitions
-- **Compact Layout**: Tighter spacing throughout for information density without clutter
+- **Design System**: CSS custom properties, glassmorphism, smooth dark/light transitions
 
 **Dependencies Added:**
 - `react-markdown` — Markdown rendering in chat bubbles
-- `remark-gfm` — GitHub Flavored Markdown support (tables, strikethrough)
-- `framer-motion` — Animation library (available for future enhancements)
+- `remark-gfm` — GitHub Flavored Markdown support
+- `framer-motion` — Animation library
+
+---
+
+### Phase 15: Answer Evaluation Hardening, Dashboard Fix & UX Cleanup
+**Prompt:**
+> Either it is not using AI for interviewing or it is just fixed question asking with combination only and also users response also not getting checked as it passes all the answer also. What are the dashboard on the left shows? What pass and fail things? Everything got passed, why? Also what are suggestion above the chatbox or typing box or interview panel? Fix the issue? Also what is memory graph do we really need that there?
+
+**Issues Identified & Fixed:**
+
+**ISSUE 1 — Simulation fallback was not evaluating answers:**
+- The `simulate_llm_response()` function was a hardcoded question bank that cycled through template questions regardless of what the user answered — even "I don't know" got PASSED
+- **Fix:** Added `_fallback_evaluate_answer()` function that checks answers even in offline mode:
+  - Skip phrases ("I don't know", "no idea") → **skipped**
+  - Too brief (<8 words) → **too_brief**
+  - Off-topic (no keyword hits from topic title) → **off_topic**
+  - Vague (<25 words) → **vague**
+  - Detailed (60+ words with specifics) → **strong**
+- Both backend (`llm_client.py`) and frontend (`App.jsx`) simulation fallbacks now perform real evaluation
+
+**ISSUE 2 — Dashboard showed mission history, not interview results:**
+- The sidebar "Evaluation Topics" section showed `td.passed` / `td.skipped` from the candidate's **original mission data** — so everything always showed "Pass"
+- **Fix:** Added `topicResults` state that tracks per-topic judgments FROM THE ACTUAL INTERVIEW. Dashboard now shows:
+  - 🟢 **Strong** / **Adequate** — good answers
+  - 🟡 **Weak** — vague or surface-level
+  - 🔴 **Off-Topic** / **Skipped** / **Too Brief** — failed answers
+  - ⚪ **Pending** — not yet evaluated
+- Added "Interview Score" section with visual breakdown bar (strong/weak/failed)
+
+**ISSUE 3 — Quick prompts were pre-written answers:**
+- `QUICK_PROMPTS` in `ChatStream.jsx` were hardcoded perfect answers that users could click to auto-fill, defeating the interview purpose
+- **Fix:** Replaced with non-clickable contextual thinking hints:
+  - Old: `"ChromaDB locally with metadata filtering; Pinecone for cloud..."` (clickable, fills answer)
+  - New: `"Think about: metadata filtering vs pure similarity search"` (non-clickable guidance)
+  - Hints change dynamically based on the current topic being discussed
+
+**ISSUE 4 — Memory Graph panel removed:**
+- The Memory Graph panel showed Breeth memory edges — mostly noise (candidate name → random 3-word labels) taking up screen real estate without adding interview value
+- **Fix:** Removed the entire Memory Graph `<aside>` panel. Breeth integration still works on the backend for LLM context augmentation
+
+**ISSUE 5 — Backend API answer_judgment tracking:**
+- Frontend had no way to know what the backend thought of each answer
+- **Fix:** Added `answer_judgment` field to the API response model and `process_turn` return
+
+**Files Created / Modified:**
+- `/backend/llm_client.py` — Added `_fallback_evaluate_answer()`, rewrote `simulate_llm_response()` to evaluate + fail weak answers
+- `/backend/main.py` — Added `answer_judgment` to `InterviewResponse` model and API response
+- `/backend/interview_engine.py` — Added `answer_judgment` to `process_turn` return
+- `/src/App.jsx` — Added `topicResults` tracking, `evaluateAnswerLocally()`, removed Memory Graph panel, fixed simulation
+- `/src/components/ChatStream.jsx` — Replaced `QUICK_PROMPTS` with `getTopicHints()`, non-clickable contextual hints
+- `/src/components/CandidateSidebar.jsx` — Shows interview results (strong/weak/fail) instead of mission history, added Interview Score section
+- `/src/index.css` — Added `.hint-pill` and `.chip-muted` styles
+
+**Verification:**
+- All 5 evaluation test cases pass: skip → skipped, brief → too_brief, off-topic → off_topic, vague → vague, detailed → strong
+- Vite production build passes clean (0 errors, 0 warnings)
+- Backend imports verified with Python venv
+
+---
+
+## 🚀 Live Deployment Checklist
+- [x] Public GitHub Repository: `https://github.com/priyanshubuild/BitForgeXABTalks`
+- [x] AI Usage Log: [`PROMPTS.md`](./PROMPTS.md) — This file (unified prompt & development log)
+- [x] Backend API: `POST /api/interview` & `GET /health` & `GET /api/sessions` (port 8001)
+- [x] React Single Page Application with client fallbacks ready for Vercel/Netlify deployment (port 3001)
+- [x] Free LLM: Google Gemini 2.0 Flash (no cost) → Gemini 1.5 Flash fallback → Anthropic Claude → offline simulation with real evaluation
+- [x] Memory Layer: Breeth API (`POST /v1/episodes`, `POST /v1/search`) with async-aware search timing
+- [x] Session Persistence: SQLite (`backend/sessions.db`) — survives hot-reload and serverless cold starts
+- [x] Evaluation Pipeline: LLM topical judgment → topic state machine → explicit mismatch naming → answer quality tracking
+- [x] Answer Validation: Both LLM-powered and heuristic evaluation that can actually FAIL weak/off-topic/skipped answers
+
+---
+
+## 🛠️ AI Tools Used
+- **Antigravity** (Google DeepMind) — Primary AI coding assistant for all development phases
+- **Google Gemini 2.0 Flash** — Primary LLM for interview question generation and answer evaluation
+- **Anthropic Claude** — Secondary LLM fallback
+- **Breeth API** — Memory graph for candidate knowledge persistence across interview turns

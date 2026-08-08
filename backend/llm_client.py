@@ -204,28 +204,108 @@ def _build_fallback_question(day_num: int, day_title: str, candidate_name: str, 
     return base
 
 
+def _fallback_evaluate_answer(answer: str, day_title: str) -> Dict[str, str]:
+    """
+    Even in simulation mode, evaluate the quality of answers.
+    Returns a judgment + feedback prefix for the next response.
+    """
+    a_lower = answer.strip().lower()
+    word_count = len(answer.strip().split())
+
+    # Check for skip / don't know responses
+    skip_phrases = [
+        "skip", "i don't know", "i dont know", "no idea", "pass",
+        "not sure", "don't know", "dont know", "skip this",
+        "no clue", "can't answer", "cant answer", "idk",
+    ]
+    for phrase in skip_phrases:
+        if phrase in a_lower:
+            return {
+                "judgment": "skipped",
+                "prefix": f"You indicated you're unsure about this topic. That's noted as a gap. ",
+            }
+
+    # Check for extremely brief or empty answers
+    if word_count < 8:
+        return {
+            "judgment": "too_brief",
+            "prefix": f"That answer was too brief ({word_count} words) to evaluate meaningfully. I'm marking this as insufficient. ",
+        }
+
+    # Check for off-topic: does the answer mention ANY relevant keyword from the day title?
+    title_words = set(w.lower() for w in re.findall(r'[a-zA-Z]{4,}', day_title))
+    title_words.discard("and")  # remove common words
+    hits = sum(1 for tw in title_words if tw in a_lower)
+    if title_words and hits == 0 and word_count < 40:
+        return {
+            "judgment": "off_topic",
+            "prefix": f"Your answer doesn't appear to address the topic ({day_title}). ",
+        }
+
+    # Surface-level answer
+    if word_count < 25:
+        return {
+            "judgment": "vague",
+            "prefix": "Your answer is on the right track but lacks specific implementation details. ",
+        }
+
+    # Decent answer
+    if word_count < 60:
+        return {
+            "judgment": "adequate",
+            "prefix": "",
+        }
+
+    # Detailed answer
+    return {
+        "judgment": "strong",
+        "prefix": "",
+    }
+
+
 def simulate_llm_response(system_prompt: str, messages: List[Dict[str, str]]) -> Dict[str, Any]:
     """
     Offline fallback used ONLY when both Gemini and Anthropic are unavailable.
 
-    This path now remains curriculum-aware and produces specific, interview-like questions.
-    It also returns a structured feedback object when the caller is generating final feedback.
+    This path now evaluates answers for quality and can FAIL weak responses.
+    Responses are clearly labeled as offline simulation mode.
     """
     if "expert ai technical evaluator" in system_prompt.lower():
         candidate_name = _extract_candidate_name(system_prompt)
+        # Analyze the conversation to build actual feedback
+        user_msgs = [m for m in messages if m.get("role") == "user"]
+        total_words = sum(len(m.get("content", "").split()) for m in user_msgs)
+        avg_words = total_words / len(user_msgs) if user_msgs else 0
+
+        # Count actual skip/brief answers
+        weak_count = 0
+        for m in user_msgs:
+            content = m.get("content", "").lower()
+            wc = len(content.split())
+            if wc < 15 or any(p in content for p in ["don't know", "dont know", "skip", "no idea", "not sure", "idk"]):
+                weak_count += 1
+
+        if weak_count > len(user_msgs) * 0.5:
+            summary = f"{candidate_name} struggled with most topics, providing insufficient or skipped answers for {weak_count} out of {len(user_msgs)} questions. Significant gaps in curriculum understanding detected."
+            strengths = ["Participated in the full interview session.",
+                         "Showed willingness to attempt topics despite uncertainty."]
+            gaps = [f"Could not provide substantive answers for {weak_count} questions.",
+                    "Responses lacked technical specificity and implementation details.",
+                    "Several core curriculum topics appear unmastered."]
+        else:
+            summary = f"{candidate_name} participated in a structured technical interview. Average response depth was {'adequate' if avg_words > 30 else 'below expectations'}."
+            strengths = ["Engaged with multiple curriculum topic areas.",
+                         "Provided responses spanning early and late-stage days."]
+            gaps = ["Several areas would benefit from a more concrete hands-on walkthrough.",
+                    "A few responses could be strengthened with explicit architecture details."]
+
         return {
-            "summary": f"{candidate_name} participated in a structured technical interview and responded across several AI Cohort topics.",
-            "strengths": [
-                "Demonstrated willingness to discuss implementation decisions and tradeoffs.",
-                "Engaged with multiple curriculum days rather than giving a single generic answer."
-            ],
-            "gaps": [
-                "Several areas would benefit from a more concrete hands-on walkthrough.",
-                "A few responses could be strengthened with explicit architecture and validation details."
-            ],
+            "summary": summary + " ⚠️ Note: this evaluation was generated in offline mode without AI analysis.",
+            "strengths": strengths,
+            "gaps": gaps,
             "next": [
                 "Review the skipped or weaker curriculum days and practice explaining them aloud.",
-                "Re-run the interview with a stronger real-world example for each topic."
+                "Re-run the interview with a live LLM backend for fully adaptive evaluation."
             ]
         }
 
@@ -236,33 +316,56 @@ def simulate_llm_response(system_prompt: str, messages: List[Dict[str, str]]) ->
     last_user_msg = user_messages[-1].get("content", "") if user_messages else ""
 
     day_num, day_title = target_days[turn_index % len(target_days)] if target_days else (7, "Embeddings Explained")
-    question = _build_fallback_question(day_num, day_title, candidate_name, turn_index, last_user_msg)
+
+    # Evaluate the user's last answer (if any)
+    answer_judgment = "first_question"
+    response_prefix = ""
+    if last_user_msg:
+        eval_result = _fallback_evaluate_answer(last_user_msg, day_title)
+        answer_judgment = eval_result["judgment"]
+        response_prefix = eval_result["prefix"]
 
     if turn_index >= 7:
+        # Analyze all answers before generating final feedback
+        judgments = []
+        for i, umsg in enumerate(user_messages):
+            d_idx = i % len(target_days) if target_days else 0
+            d_title = target_days[d_idx][1] if target_days else "Unknown"
+            j = _fallback_evaluate_answer(umsg.get("content", ""), d_title)
+            judgments.append(j["judgment"])
+
+        weak = sum(1 for j in judgments if j in ("skipped", "too_brief", "off_topic"))
+        strong = sum(1 for j in judgments if j in ("strong", "adequate"))
+
+        closing = f"That concludes this interview session, {candidate_name}. "
+        if weak > strong:
+            closing += f"⚠️ I noted significant gaps — {weak} of your {len(judgments)} responses were insufficient or off-topic. Please review the curriculum topics thoroughly."
+        else:
+            closing += "Thank you for your responses. Your answers demonstrated reasonable engagement with the topics."
+        closing += "\n\n_Note: This was an offline evaluation. Connect the LLM backend for fully adaptive AI-powered interviewing._"
+
         return {
-            "reply": f"That concludes the structured fallback interview. {candidate_name}, your responses were coherent and consistent enough to reach the end of the session, but the strongest version of this experience needs a live LLM backend for real-time evaluation.",
+            "reply": closing,
             "is_complete": True,
             "day_covered": day_num,
-            "feedback": {
-                "summary": f"{candidate_name} completed a structured offline interview path and discussed several technical topics in a practical way.",
-                "strengths": [
-                    "Stayed engaged with the interview flow across multiple topics.",
-                    "Provided enough detail to show a solid technical framing."
-                ],
-                "gaps": [
-                    "The interview would be more valuable with deeper topic-specific probing.",
-                    "Hands-on implementation evidence would strengthen the assessment."
-                ],
-                "next": [
-                    "Practice explaining one project in depth for each target curriculum day.",
-                    "Reconnect the backend with an LLM provider for fully adaptive questioning."
-                ]
-            }
+            "answer_judgment": answer_judgment,
+            "feedback": None,  # feedback generated separately by generate_feedback_with_retry
         }
+
+    # Build the next question with evaluation prefix
+    question = _build_fallback_question(day_num, day_title, candidate_name, turn_index, last_user_msg)
+
+    if answer_judgment in ("skipped", "too_brief"):
+        question = response_prefix + "Let's move on. " + question
+    elif answer_judgment == "off_topic":
+        question = response_prefix + "I'll re-focus. " + question
+    elif answer_judgment == "vague":
+        question = response_prefix + question
 
     return {
         "reply": question,
         "is_complete": False,
         "day_covered": day_num,
+        "answer_judgment": answer_judgment,
         "feedback": None,
     }

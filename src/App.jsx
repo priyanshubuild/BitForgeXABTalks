@@ -6,7 +6,6 @@ import CandidateSidebar from './components/CandidateSidebar';
 import ChatStream from './components/ChatStream';
 import FeedbackModal from './components/FeedbackModal';
 import { ALL_CANDIDATES } from './data/candidates';
-import { Brain, GitBranch } from 'lucide-react';
 
 export default function App() {
   // Navigation: 'landing' | 'select' | 'interview'
@@ -22,11 +21,14 @@ export default function App() {
   const [targetDays, setTargetDays] = useState([]);
   const [questionsAsked, setQuestionsAsked] = useState(0);
   const [daysCovered, setDaysCovered] = useState(new Set());
-  const [memories, setMemories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
+
+  // NEW: Track per-topic interview results (not mission history!)
+  const [topicResults, setTopicResults] = useState({});
+  // e.g. { 7: 'strong', 10: 'off_topic', 12: 'vague', ... }
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -48,9 +50,9 @@ export default function App() {
     setIsLoading(true);
     setIsComplete(false);
     setFeedback(null);
-    setMemories([]);
     setQuestionsAsked(1);
     setMessages([]);
+    setTopicResults({});
 
     const missions = candidateObj.missions || [];
     const passed = missions.filter(m => m.passed).slice(0, 4);
@@ -74,7 +76,6 @@ export default function App() {
         });
         const data = await res.json();
         setMessages([{ role: 'assistant', content: data.reply }]);
-        if (Array.isArray(data.memories)) setMemories(data.memories);
         setIsLoading(false);
         return;
       } catch (e) { console.warn('Backend init failed, using simulation', e); }
@@ -85,7 +86,7 @@ export default function App() {
       const firstDay = formatted[0] ?? { day: 7, title: 'Embeddings Explained' };
       setMessages([{
         role: 'assistant',
-        content: `Welcome, ${candidateObj.member.name}! I'm your AI interviewer for today's technical evaluation.\n\nWe'll work through your AI Cohort journey — assessing what you've built, understood, and where there's room to grow.\n\nLet's start with **Day ${firstDay.day} — ${firstDay.title}**:\n\nWalk me through how you approached this topic. What was your implementation strategy, and what tradeoffs did you consider?`,
+        content: `Welcome, ${candidateObj.member.name}! I'm your AI interviewer for today's technical evaluation.\n\n⚠️ _Running in offline simulation mode — connect the backend for full AI-powered evaluation._\n\nWe'll work through your AI Cohort journey — assessing what you've built, understood, and where there's room to grow.\n\nLet's start with **Day ${firstDay.day} — ${firstDay.title}**:\n\nWalk me through how you approached this topic. What was your implementation strategy, and what tradeoffs did you consider?`,
       }]);
       setIsLoading(false);
     }, 600);
@@ -105,6 +106,41 @@ export default function App() {
     initSession(activeCandidate, sid);
   };
 
+  // Helper: evaluate answer quality client-side (for simulation fallback)
+  const evaluateAnswerLocally = (text, dayTitle) => {
+    const lower = text.trim().toLowerCase();
+    const wordCount = text.trim().split(/\s+/).length;
+
+    // Skip/don't know detection
+    const skipPhrases = [
+      "skip", "i don't know", "i dont know", "no idea", "pass",
+      "not sure", "don't know", "dont know", "no clue", "idk",
+      "can't answer", "cant answer",
+    ];
+    for (const phrase of skipPhrases) {
+      if (lower.includes(phrase)) return 'skipped';
+    }
+
+    // Too brief
+    if (wordCount < 8) return 'too_brief';
+
+    // Off-topic check: extract keywords from day title
+    const titleWords = (dayTitle || '').match(/[a-zA-Z]{4,}/g) || [];
+    const titleKeywords = titleWords.map(w => w.toLowerCase()).filter(w => w !== 'and');
+    if (titleKeywords.length > 0) {
+      const hits = titleKeywords.filter(kw => lower.includes(kw)).length;
+      if (hits === 0 && wordCount < 40) return 'off_topic';
+    }
+
+    // Vague
+    if (wordCount < 25) return 'vague';
+
+    // Adequate
+    if (wordCount < 60) return 'adequate';
+
+    return 'strong';
+  };
+
   const handleSendMessage = async (text) => {
     const updated = [...messages, { role: 'user', content: text }];
     setMessages(updated);
@@ -122,15 +158,19 @@ export default function App() {
         setQuestionsAsked(q => q + 1);
 
         if (targetDays[questionsAsked % targetDays.length]) {
-          setDaysCovered(prev => new Set([...prev, targetDays[questionsAsked % targetDays.length].day]));
+          const coveredDay = targetDays[questionsAsked % targetDays.length];
+          setDaysCovered(prev => new Set([...prev, coveredDay.day]));
         }
 
-        if (Array.isArray(data.memories)) {
-          setMemories(prev => {
-            const existing = new Set(prev.map(m => m.fact?.toLowerCase().trim()));
-            const fresh = data.memories.filter(m => !existing.has(m.fact?.toLowerCase().trim()));
-            return [...prev, ...fresh];
-          });
+        // Extract judgment from backend response if available
+        if (data.answer_judgment) {
+          const curDay = targetDays[(questionsAsked - 1) % (targetDays.length || 1)];
+          if (curDay) {
+            setTopicResults(prev => ({
+              ...prev,
+              [curDay.day]: data.answer_judgment,
+            }));
+          }
         }
 
         if (data.done) {
@@ -143,45 +183,119 @@ export default function App() {
       } catch (e) { console.warn('Backend turn failed, using simulation', e); }
     }
 
-    // Simulation fallback
+    // Simulation fallback with REAL answer evaluation
     setTimeout(() => {
       const nextTurn = questionsAsked + 1;
       setQuestionsAsked(nextTurn);
       const tidx = (nextTurn - 1) % (targetDays.length || 1);
       const curDay = targetDays[tidx] || targetDays[0];
+      const prevTidx = (nextTurn - 2) % (targetDays.length || 1);
+      const prevDay = targetDays[prevTidx] || targetDays[0];
       if (curDay) setDaysCovered(prev => new Set([...prev, curDay.day]));
 
-      const wordCount = text.trim().split(/\s+/).length;
-      const isVague = wordCount < 20;
+      // Evaluate the answer against the PREVIOUS topic (what was asked about)
+      const judgment = evaluateAnswerLocally(text, prevDay?.title || 'general AI');
+
+      // Store result for this topic
+      if (prevDay) {
+        setTopicResults(prev => ({
+          ...prev,
+          [prevDay.day]: judgment,
+        }));
+      }
 
       if (nextTurn >= 8 && (daysCovered?.size ?? 0) >= 3) {
+        // Count weak vs strong answers
+        const allResults = { ...topicResults };
+        if (prevDay) allResults[prevDay.day] = judgment;
+        const weakCount = Object.values(allResults).filter(j =>
+          ['skipped', 'too_brief', 'off_topic'].includes(j)
+        ).length;
+        const totalCount = Object.values(allResults).length;
+
+        let closingMsg;
+        if (weakCount > totalCount * 0.5) {
+          closingMsg = `That concludes our session, ${activeCandidate.member.name}. ⚠️ I noted significant gaps — ${weakCount} of your ${totalCount} responses were insufficient or off-topic. You'll need to review these curriculum topics before a real assessment.\n\n_Note: This was an offline simulation. Start the backend for AI-powered evaluation._`;
+        } else {
+          closingMsg = `That concludes our session. Thank you, ${activeCandidate.member.name}. Your responses demonstrated ${weakCount === 0 ? 'solid' : 'mixed'} engagement with the topics.\n\n_Note: This was an offline simulation. Start the backend for AI-powered evaluation._`;
+        }
+
         const mockFb = {
-          summary: `${activeCandidate.member.name} participated across multiple curriculum areas. Note: this evaluation was generated in offline simulation mode.`,
-          strengths: ['Engaged with multiple curriculum topic areas.', 'Provided responses spanning early and late-stage days.'],
-          gaps: ['Backend unreachable — real LLM evaluation unavailable.', 'Depth of answers could not be verified.'],
-          next: ['Start backend (uvicorn backend.main:app --reload --port 8001) for real evaluation.', 'Review skipped/failed missions.'],
+          summary: weakCount > totalCount * 0.5
+            ? `${activeCandidate.member.name} struggled with most topics. ${weakCount} out of ${totalCount} responses were insufficient. ⚠️ Offline simulation mode.`
+            : `${activeCandidate.member.name} participated across multiple curriculum areas with ${weakCount === 0 ? 'consistently adequate' : 'mixed'} depth. ⚠️ Offline simulation mode.`,
+          strengths: weakCount > totalCount * 0.5
+            ? ['Participated in the full interview session.', 'Attempted all assigned topics.']
+            : ['Engaged with multiple curriculum topic areas.', 'Provided responses spanning early and late-stage days.'],
+          gaps: weakCount > totalCount * 0.5
+            ? [`${weakCount} responses were too brief, off-topic, or skipped.`, 'Responses lacked technical depth across most topics.', 'Core curriculum concepts appear unmastered.']
+            : ['Backend unreachable — real LLM evaluation unavailable.', 'Depth of answers could not be fully verified in offline mode.'],
+          next: ['Start backend (uvicorn backend.main:app --reload --port 8001) for real AI evaluation.', 'Review skipped/failed missions with hands-on practice.'],
         };
-        setMessages([...updated, { role: 'assistant', content: "That concludes our session. Thank you — please note this was a simulated offline session." }]);
+        setMessages([...updated, { role: 'assistant', content: closingMsg }]);
         setIsComplete(true);
         setFeedback(mockFb);
         setShowFeedback(true);
-      } else if (isVague) {
-        const probes = [
-          `That was quite brief. Walk me through a concrete implementation detail for **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})** — what code or configuration did you actually write?`,
-          `I need more depth. What specific tool or library did you use on **Day ${curDay?.day ?? 8}**, and what problem did it solve?`,
-          `Can you be more precise? For **Day ${curDay?.day ?? 12} (${curDay?.title ?? 'this module'})**, what was the hardest part technically?`,
-        ];
-        setMessages([...updated, { role: 'assistant', content: probes[(nextTurn - 2) % probes.length] }]);
       } else {
-        const deepDive = [
-          `For **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**: how did you handle edge cases or failure modes?`,
-          `On **Day ${curDay?.day ?? 8}**: what would break first at 10x scale, and how would you address it architecturally?`,
-          `Probing **Day ${curDay?.day ?? 12}** further: if a senior engineer reviewed your solution, what criticism would they raise?`,
-        ];
-        setMessages([...updated, { role: 'assistant', content: deepDive[(nextTurn - 2) % deepDive.length] }]);
+        // Build response based on judgment
+        let responsePrefix = '';
+        switch (judgment) {
+          case 'skipped':
+            responsePrefix = `You indicated you're unsure about this topic. That's noted as a **gap** in your evaluation. Let's move on.\n\n`;
+            break;
+          case 'too_brief':
+            responsePrefix = `⚠️ That answer was too brief to evaluate meaningfully — it's been marked as **insufficient**.\n\n`;
+            break;
+          case 'off_topic':
+            responsePrefix = `⚠️ Your answer doesn't appear to address **${prevDay?.title || 'the topic'}**. That's been noted as **off-topic**.\n\n`;
+            break;
+          case 'vague':
+            responsePrefix = `Your answer touches on the topic but lacks specific implementation details. Noted as **needs more depth**.\n\n`;
+            break;
+          default:
+            responsePrefix = '';
+        }
+
+        const probes = {
+          skipped: [
+            `Moving on to **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**: Tell me about the core concept and how you'd implement it from scratch.`,
+            `Let's try **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: What tools would you choose and why?`,
+          ],
+          too_brief: [
+            `For **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**: Walk me through the implementation step-by-step. What specific code or configuration would you write?`,
+            `On **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: Describe a concrete scenario where you'd use this and the architecture you'd build.`,
+          ],
+          off_topic: [
+            `Let me redirect — for **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**, specifically: what does this topic involve technically, and how would you implement it?`,
+            `Focusing specifically on **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: what's the core challenge and how would you solve it?`,
+          ],
+          vague: [
+            `Can you be more precise about **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**? I need concrete implementation details — what specific tools, patterns, or code did you use?`,
+            `Dig deeper on **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: what was the hardest technical decision, and what alternative did you reject?`,
+          ],
+          adequate: [
+            `Good. Now on **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**: how did you handle edge cases or failure modes in your implementation?`,
+            `For **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: what would break first at 10x scale, and how would you address it?`,
+          ],
+          strong: [
+            `Solid answer. Let's go deeper with **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**: if a senior engineer reviewed your solution, what criticism would they raise?`,
+            `Moving to **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: what's the most important architectural decision here and why?`,
+          ],
+        };
+
+        const options = probes[judgment] || probes.adequate;
+        const question = options[(nextTurn - 2) % options.length];
+        setMessages([...updated, { role: 'assistant', content: responsePrefix + question }]);
       }
       setIsLoading(false);
     }, 700);
+  };
+
+  // Get the current topic being discussed (for contextual hints)
+  const getCurrentTopic = () => {
+    if (!targetDays.length) return null;
+    const idx = (questionsAsked - 1) % (targetDays.length || 1);
+    return targetDays[idx] || targetDays[0];
   };
 
   // ─── RENDER ───────────────────────────────────────────────
@@ -193,7 +307,7 @@ export default function App() {
     return <CandidateSelect candidates={ALL_CANDIDATES} onSelect={handleSelectCandidate} onBack={() => setPage('landing')} />;
   }
 
-  // Interview page
+  // Interview page — NO memory graph panel
   return (
     <div className="interview-layout">
       <div className="mesh-bg" />
@@ -214,6 +328,7 @@ export default function App() {
           targetDays={targetDays}
           questionsAsked={questionsAsked}
           daysCovered={daysCovered}
+          topicResults={topicResults}
         />
 
         <ChatStream
@@ -223,56 +338,8 @@ export default function App() {
           candidate={activeCandidate}
           isComplete={isComplete}
           onShowFeedback={() => setShowFeedback(true)}
+          currentTopic={getCurrentTopic()}
         />
-
-        {/* Memory Graph Panel */}
-        <aside style={{
-          width: 250, background: 'var(--bg-base)', borderLeft: '1px solid var(--border)',
-          display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden',
-        }}>
-          <div style={{
-            padding: '12px 16px', borderBottom: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', gap: 7, background: 'var(--bg-card)', flexShrink: 0,
-          }}>
-            <Brain size={13} color="var(--indigo)" />
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)' }}>Memory Graph</span>
-            {memories.length > 0 && (
-              <span className="chip chip-indigo" style={{ marginLeft: 'auto', fontSize: 9, padding: '1px 7px' }}>
-                {memories.length}
-              </span>
-            )}
-          </div>
-
-          <div style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {memories.length === 0 ? (
-              <div style={{
-                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-                justifyContent: 'center', textAlign: 'center', padding: 16, gap: 8, color: 'var(--text-3)',
-              }}>
-                <Brain size={28} strokeWidth={1.2} />
-                <p style={{ fontSize: 11, fontWeight: 600 }}>No memories yet</p>
-                <p style={{ fontSize: 10, lineHeight: 1.5 }}>Substantive answers are written to the Breeth memory graph</p>
-              </div>
-            ) : (
-              memories.map((m, idx) => (
-                <div key={idx} className="glass animate-slide-in" style={{
-                  padding: '9px 11px', borderRadius: 'var(--r-md)', animationDelay: `${idx * 0.04}s`,
-                  display: 'flex', flexDirection: 'column', gap: 5,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                    <span className="chip chip-indigo" style={{ fontSize: 9, padding: '1px 6px' }}>{m.source_node}</span>
-                    <GitBranch size={9} color="var(--text-3)" />
-                    <span className="chip chip-indigo" style={{ fontSize: 9, padding: '1px 6px' }}>{m.target_node}</span>
-                  </div>
-                  <p style={{ fontSize: 10, lineHeight: 1.5, color: 'var(--text-2)' }}>{m.fact}</p>
-                  {m.cognitive_pattern && (
-                    <span className="chip chip-green" style={{ fontSize: 9, alignSelf: 'flex-start', padding: '1px 6px' }}>{m.cognitive_pattern}</span>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </aside>
       </div>
 
       {showFeedback && (

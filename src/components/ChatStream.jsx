@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, Bot, User, Award, Zap } from 'lucide-react';
+import { Send, Bot, User, Award, Lightbulb } from 'lucide-react';
 
 /* Typing animation */
 function TypewriterText({ text, speed = 8, onDone }) {
@@ -32,6 +32,7 @@ function TypewriterText({ text, speed = 8, onDone }) {
 const MD_COMPONENTS = {
   p: ({ children }) => <p style={{ marginBottom: 8 }}>{children}</p>,
   strong: ({ children }) => <strong style={{ color: 'var(--indigo-hov)', fontWeight: 700 }}>{children}</strong>,
+  em: ({ children }) => <em style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>{children}</em>,
   code: ({ children }) => (
     <code style={{
       background: 'var(--bg-elevated)', padding: '2px 6px', borderRadius: 4,
@@ -43,17 +44,76 @@ const MD_COMPONENTS = {
   li: ({ children }) => <li style={{ marginBottom: 3, fontSize: 13.5 }}>{children}</li>,
 };
 
-/* Quick prompts */
-const QUICK_PROMPTS = [
-  "We used recursive chunking with 512-token size and 50-token overlap, using cosine similarity for matching.",
-  "ChromaDB locally with metadata filtering; Pinecone for cloud with namespace isolation.",
-  "Session state persisted via SQLite, token truncation to keep within 4k context window.",
-  "Router agent delegated via intent classification before calling specialist sub-agents.",
-  "MCP gives standardized tool schemas, making tools reusable across different LLM clients.",
-  "Docker readiness probe on /health with 5s timeout and 3 retry attempts.",
-];
+/* Contextual topic hints — NOT pre-written answers */
+function getTopicHints(topic) {
+  if (!topic) return [];
+  const title = (topic.title || '').toLowerCase();
 
-export default function ChatStream({ messages, onSendMessage, isLoading, candidate, isComplete, onShowFeedback }) {
+  if (title.includes('embedding')) {
+    return [
+      'Think about: vector dimensions, cosine vs dot product similarity',
+      'Consider: how embeddings encode semantic meaning',
+      'Discuss: chunking strategy and its impact on retrieval',
+    ];
+  }
+  if (title.includes('vector') && title.includes('database')) {
+    return [
+      'Think about: indexing strategies (IVF, HNSW)',
+      'Consider: metadata filtering vs pure similarity search',
+      'Discuss: scaling challenges and when to use managed vs self-hosted',
+    ];
+  }
+  if (title.includes('retrieval') || title.includes('matching')) {
+    return [
+      'Think about: hybrid search (keyword + vector)',
+      'Consider: re-ranking and result quality evaluation',
+      'Discuss: query routing between different retrieval methods',
+    ];
+  }
+  if (title.includes('prompt')) {
+    return [
+      'Think about: few-shot vs zero-shot approaches',
+      'Consider: output format control and validation',
+      'Discuss: handling hallucination and ambiguity',
+    ];
+  }
+  if (title.includes('function calling') || title.includes('structured')) {
+    return [
+      'Think about: schema design for tool parameters',
+      'Consider: error handling when function calls fail',
+      'Discuss: validation of structured LLM outputs',
+    ];
+  }
+  if (title.includes('agent') || title.includes('orchestration')) {
+    return [
+      'Think about: task decomposition and planning',
+      'Consider: agent communication patterns',
+      'Discuss: error recovery and fallback strategies',
+    ];
+  }
+  if (title.includes('docker') || title.includes('kubernetes') || title.includes('deploy')) {
+    return [
+      'Think about: health checks and readiness probes',
+      'Consider: container resource limits and scaling',
+      'Discuss: CI/CD pipeline and rollback strategy',
+    ];
+  }
+  if (title.includes('mcp') || title.includes('protocol')) {
+    return [
+      'Think about: standardized tool interfaces',
+      'Consider: cross-client tool reusability',
+      'Discuss: why protocol standardization matters',
+    ];
+  }
+
+  return [
+    'Think about: your implementation approach and tradeoffs',
+    'Consider: what worked well and what you\'d change',
+    'Discuss: specific tools, libraries, or patterns you used',
+  ];
+}
+
+export default function ChatStream({ messages, onSendMessage, isLoading, candidate, isComplete, onShowFeedback, currentTopic }) {
   const [input, setInput] = useState('');
   const [lastAnimated, setLastAnimated] = useState(-1);
   const endRef = useRef(null);
@@ -79,6 +139,7 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
   };
 
   const initials = candidate?.member?.name?.split(' ').map(n => n[0]).join('') || 'U';
+  const hints = getTopicHints(currentTopic);
 
   return (
     <main style={{
@@ -180,15 +241,15 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
         <div ref={endRef} />
       </div>
 
-      {/* Quick prompts */}
-      {!isComplete && (
+      {/* Contextual topic hints (NOT pre-written answers) */}
+      {!isComplete && currentTopic && hints.length > 0 && (
         <div style={{ padding: '0 24px 6px', flexShrink: 0 }}>
           <div className="pills-strip">
-            {QUICK_PROMPTS.map((qp, idx) => (
-              <button key={idx} className="prompt-pill" onClick={() => setInput(qp)}>
-                <Zap size={9} style={{ flexShrink: 0, display: 'inline', marginRight: 2 }} />
-                {qp.slice(0, 48)}…
-              </button>
+            {hints.map((hint, idx) => (
+              <div key={idx} className="hint-pill">
+                <Lightbulb size={9} style={{ flexShrink: 0, display: 'inline', marginRight: 3, color: 'var(--amber)' }} />
+                <span>{hint}</span>
+              </div>
             ))}
           </div>
         </div>

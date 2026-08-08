@@ -33,6 +33,7 @@ class InterviewResponse(BaseModel):
     done: bool
     feedback: Optional[FeedbackShape] = None
     memories: Optional[List[Dict[str, Any]]] = None
+    answer_judgment: Optional[str] = None
 
 # Health Check Routes
 @app.get("/health")
@@ -85,6 +86,7 @@ def interview_endpoint(payload: Dict[str, Any] = Body(...)):
                 "done": bool(result.get("done", False)),
                 "feedback": result.get("feedback"),
                 "memories": result.get("memories"),
+                "answer_judgment": result.get("answer_judgment"),
             }
     except HTTPException:
         raise
