@@ -87,7 +87,7 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
     }}>
       {/* Top bar */}
       <div className="glass" style={{
-        padding: '9px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         borderLeft: 'none', borderRight: 'none', borderTop: 'none', borderRadius: 0, flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -111,6 +111,7 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
       {/* Messages */}
       <div style={{
         flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16,
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.012), transparent)',
       }}>
         {messages.length === 0 && (
           <div style={{
@@ -197,6 +198,7 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
       <div className="glass" style={{
         padding: '12px 20px', display: 'flex', gap: 8,
         borderLeft: 'none', borderRight: 'none', borderBottom: 'none', borderRadius: 0, flexShrink: 0,
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02))',
       }}>
         <textarea
           ref={inputRef}

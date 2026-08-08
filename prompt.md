@@ -59,5 +59,10 @@ This file maintains the prompt history and AI agent usage log for the **AI Inter
 - Fixed glass card background opacities and high contrast colors in light theme to resolve text readability, button disabled states, and memory panel layout issues.
 - Successfully ran turn-by-turn simulated validation tests confirming clean execution.
 
+### Prompt 11: Backend Hardening & Contract Verification
+- Tightened the backend interview flow so fallback questions stay tied to the selected curriculum days instead of feeling generic.
+- Normalized the `/api/interview` response contract to always return `reply`, `done`, `feedback`, and `memories` in a consistent shape.
+- Verified the behavior with local regression tests and a live health check against the running FastAPI server.
+
 
 

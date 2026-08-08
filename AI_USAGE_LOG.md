@@ -97,6 +97,11 @@ This document serves as the log for prompts and design decisions made using **An
 ## 🐛 Phase 6: Critical Bug Fixes — Session Persistence & Evaluation Pipeline
 *In this phase, we diagnosed and fixed two confirmed production bugs from a live test session (Sarah Johnson, sess-178620861): session state being wiped on hot-reload, and the interviewer echoing template strings instead of evaluating answers.*
 
+### Additional Verification Performed
+- Verified the backend test suite with `python backend/test_evaluator.py` and `python backend/test_interview_fallback.py`.
+- Confirmed the live API responds at `GET /api/health` via a local Uvicorn server on port 8001.
+- Hardened the offline fallback so it stays curriculum-aware and returns structured interview questions.
+
 ### Prompts Used
 > The interview agent has two confirmed bugs from a live test session (sess-178620861, candidate Sarah Johnson). Fix the root cause of each, don't paper over the symptom.
 >

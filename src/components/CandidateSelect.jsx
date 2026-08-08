@@ -26,15 +26,16 @@ export default function CandidateSelect({ candidates, onSelect, onBack }) {
 
       {/* Header */}
       <div style={{
-        padding: '16px 28px', borderBottom: '1px solid var(--border)',
+        padding: '18px 30px', borderBottom: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'var(--bg-card)', backdropFilter: 'blur(16px)', position: 'relative', zIndex: 10,
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))',
+        backdropFilter: 'blur(16px)', position: 'relative', zIndex: 10,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <button className="icon-btn" onClick={onBack}><ArrowLeft size={15} /></button>
           <div>
-            <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)' }}>Select Candidate</h2>
-            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Choose a candidate to begin their technical interview</p>
+            <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.02em' }}>Select Candidate</h2>
+            <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>Choose a candidate to begin their technical interview</p>
           </div>
         </div>
 
@@ -96,13 +97,13 @@ export default function CandidateSelect({ candidates, onSelect, onBack }) {
 
               {/* Completion bar */}
               <div style={{ marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 6 }}>
                   <span style={{ color: 'var(--text-3)' }}>Cohort Progress</span>
                   <span style={{ fontWeight: 700, color: pct >= 90 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--red)', fontFamily: 'var(--font-mono)' }}>
                     {pct}%
                   </span>
                 </div>
-                <div className="progress-track" style={{ height: 5 }}>
+                <div className="progress-track" style={{ height: 6, borderRadius: 999 }}>
                   <div className="progress-fill" style={{
                     width: `${pct}%`,
                     background: pct >= 90 ? 'var(--green)' : pct >= 60 ? 'linear-gradient(90deg, var(--amber), var(--green))' : 'var(--amber)',
@@ -111,7 +112,7 @@ export default function CandidateSelect({ candidates, onSelect, onBack }) {
               </div>
 
               {/* Mini stats */}
-              <div className="candidate-mini-stats">
+              <div className="candidate-mini-stats" style={{ gap: 9 }}>
                 <div className="candidate-mini-stat">
                   <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--green)', lineHeight: 1 }}>{passed}</div>
                   <div style={{ fontSize: 9, color: 'var(--text-3)', fontWeight: 600, marginTop: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>

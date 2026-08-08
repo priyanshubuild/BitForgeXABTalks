@@ -51,7 +51,7 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
       display: 'flex', flexDirection: 'column', overflowY: 'auto', flexShrink: 0,
     }}>
       {/* Candidate Card */}
-      <div style={{ padding: 18, borderBottom: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+      <div style={{ padding: 18, borderBottom: '1px solid var(--border)', background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))' }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
           <div style={{
             width: 44, height: 44, borderRadius: 'var(--r-lg)',
@@ -79,7 +79,7 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
       </div>
 
       {/* Progress */}
-      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
           <Activity size={12} color="var(--indigo)" />
           <span className="section-label">Interview Progress</span>
@@ -103,7 +103,7 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
       </div>
 
       {/* Target Topics */}
-      <div style={{ padding: '14px 18px', flex: 1 }}>
+      <div style={{ padding: '14px 18px', flex: 1, background: 'rgba(255,255,255,0.005)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
           <Target size={12} color="var(--indigo)" />
           <span className="section-label">Evaluation Topics</span>
@@ -136,7 +136,7 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
       </div>
 
       {/* Mission heatmap */}
-      <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+      <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', background: 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <BookOpen size={12} color="var(--indigo)" />
           <span className="section-label">Mission Log</span>

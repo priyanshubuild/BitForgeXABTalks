@@ -60,25 +60,38 @@ def debug_sessions():
 def interview_endpoint(payload: Dict[str, Any] = Body(...)):
     """
     Single endpoint for initializing and conducting interview turns per technical-spec.md.
+    Returns the expected contract: reply, done, feedback, memories.
     """
     session_id = payload.get("sessionId")
     if not session_id:
         raise HTTPException(status_code=400, detail="Missing required field 'sessionId'.")
 
-    # Case 1: Start Interview (Payload contains 'candidate' object)
-    if "candidate" in payload:
-        candidate_data = payload["candidate"]
-        result = start_session(session_id, candidate_data)
-        return result
+    try:
+        if "candidate" in payload:
+            candidate_data = payload["candidate"]
+            result = start_session(session_id, candidate_data)
+            return {
+                "reply": result.get("reply", "Welcome. Let's begin your interview."),
+                "done": bool(result.get("done", False)),
+                "feedback": None,
+                "memories": result.get("memories"),
+            }
 
-    # Case 2: Conversation Turn (Payload contains 'message' string)
-    elif "message" in payload:
-        message_text = payload["message"]
-        result = process_turn(session_id, message_text)
-        return result
+        if "message" in payload:
+            message_text = payload["message"]
+            result = process_turn(session_id, message_text)
+            return {
+                "reply": result.get("reply", "Let's continue the interview."),
+                "done": bool(result.get("done", False)),
+                "feedback": result.get("feedback"),
+                "memories": result.get("memories"),
+            }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Interview processing failed: {exc}") from exc
 
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid request format. Payload must contain either 'candidate' (to start) or 'message' (for turn)."
-        )
+    raise HTTPException(
+        status_code=400,
+        detail="Invalid request format. Payload must contain either 'candidate' (to start) or 'message' (for turn)."
+    )
