@@ -6,9 +6,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Model specified by prompt requirement: claude-sonnet-4-6 (or fallback if API alias varies)
-MODEL_NAME = os.getenv("LLM_MODEL", "claude-3-7-sonnet-20250219")
+# ── Model Config ──────────────────────────────────────────────────────────────
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL",    "gemini-2.0-flash")
+ANTHROPIC_MODEL = os.getenv("LLM_MODEL",      "claude-3-5-sonnet-20241022")
 
+# ── Gemini Client ─────────────────────────────────────────────────────────────
+def get_gemini_client():
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return None
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        return genai
+    except Exception as e:
+        print(f"Warning: Could not initialize Gemini client: {e}")
+        return None
+
+# ── Anthropic Client ──────────────────────────────────────────────────────────
 def get_anthropic_client():
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -20,72 +35,89 @@ def get_anthropic_client():
         print(f"Warning: Could not initialize Anthropic client: {e}")
         return None
 
+# ── Main Call ─────────────────────────────────────────────────────────────────
 def call_llm(system_prompt: str, messages: List[Dict[str, str]]) -> Dict[str, Any]:
     """
-    Isolated LLM provider call function.
-    Sends system_prompt and conversation messages to LLM, returning a structured dict response.
-    Includes robust fallback for local testing if ANTHROPIC_API_KEY is not set or fails.
+    Tries Gemini first (free tier), then Anthropic, then simulation fallback.
     """
-    client = get_anthropic_client()
-    
-    if client:
+    # ---- Try Gemini (free tier) ----
+    genai = get_gemini_client()
+    if genai:
         try:
-            # Format messages for Anthropic API (role must be 'user' or 'assistant')
-            formatted_messages = []
-            for msg in messages:
-                role = "user" if msg["role"] == "user" else "assistant"
-                formatted_messages.append({
-                    "role": role,
-                    "content": msg["content"]
+            model = genai.GenerativeModel(
+                model_name=GEMINI_MODEL,
+                system_instruction=system_prompt,
+                generation_config={
+                    "temperature": 0.75,
+                    "max_output_tokens": 1400,
+                }
+            )
+
+            # Build Gemini chat history (parts format)
+            history = []
+            for msg in messages[:-1]:
+                history.append({
+                    "role": "user" if msg["role"] == "user" else "model",
+                    "parts": [msg["content"]]
                 })
 
-            response = client.messages.create(
-                model=MODEL_NAME,
-                max_tokens=1200,
-                temperature=0.7,
-                system=system_prompt,
-                messages=formatted_messages
-            )
-            
-            raw_text = response.content[0].text.strip()
-            
-            # Parse structured JSON from response
+            last_msg = messages[-1]["content"] if messages else "Begin."
+
+            chat = model.start_chat(history=history)
+            response = chat.send_message(last_msg)
+            raw_text = response.text.strip()
+
             parsed = parse_llm_json(raw_text)
             if parsed:
                 return parsed
-            else:
-                # Return raw text wrapped in valid schema if JSON parsing fails
-                return {
-                    "reply": raw_text,
-                    "is_complete": False,
-                    "day_covered": None,
-                    "feedback": None
-                }
+            return {"reply": raw_text, "is_complete": False, "day_covered": None, "feedback": None}
 
         except Exception as e:
-            print(f"LLM API Call Exception: {e}. Falling back to simulation engine.")
-    
-    # Fallback simulation engine when API key is missing or offline
+            print(f"Gemini API Exception: {e}. Trying Anthropic…")
+
+    # ---- Try Anthropic ----
+    client = get_anthropic_client()
+    if client:
+        try:
+            formatted_messages = [
+                {"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]}
+                for m in messages
+            ]
+            response = client.messages.create(
+                model=ANTHROPIC_MODEL,
+                max_tokens=1400,
+                temperature=0.75,
+                system=system_prompt,
+                messages=formatted_messages
+            )
+            raw_text = response.content[0].text.strip()
+            parsed = parse_llm_json(raw_text)
+            if parsed:
+                return parsed
+            return {"reply": raw_text, "is_complete": False, "day_covered": None, "feedback": None}
+
+        except Exception as e:
+            print(f"Anthropic API Exception: {e}. Using simulation engine.")
+
+    # ---- Fallback simulation ----
     return simulate_llm_response(system_prompt, messages)
 
 
+# ── JSON Parser ────────────────────────────────────────────────────────────────
 def parse_llm_json(text: str) -> Optional[Dict[str, Any]]:
     """Attempts to extract and parse JSON object from LLM response text."""
     try:
-        # Try direct JSON parse
         return json.loads(text)
     except json.JSONDecodeError:
         pass
-    
-    # Try finding markdown code block ```json ... ```
+
     match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
     if match:
         try:
             return json.loads(match.group(1))
         except json.JSONDecodeError:
             pass
-            
-    # Try finding raw json object { ... }
+
     match_obj = re.search(r'(\{[\s\S]*\})', text)
     if match_obj:
         try:
@@ -96,77 +128,69 @@ def parse_llm_json(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+# ── Simulation Engine (offline fallback) ──────────────────────────────────────
 def simulate_llm_response(system_prompt: str, messages: List[Dict[str, str]]) -> Dict[str, Any]:
     """
-    Intelligent local fallback generator to ensure manual testing works
-    even without a live Anthropic API key.
+    High-quality local simulation engine for offline/demo use.
+    Mirrors a realistic technical interview progression.
     """
     user_msg_count = sum(1 for m in messages if m["role"] == "user")
-    last_user_msg = messages[-1]["content"] if messages else ""
+    last_user_msg  = messages[-1]["content"] if messages else ""
 
-    # Simulated curriculum progression
     questions = [
-        ("Day 7 - Embeddings", "Welcome! Let's start with vector embeddings. In your work on Day 7, how did you handle chunking text before converting it into dense embeddings, and what distance metric did you use for similarity search?"),
-        ("Day 8 - Vector DBs", "Good point. Moving on to Day 8 on Vector Databases: ChromaDB vs Pinecone. When querying ChromaDB in production, how do you handle metadata filtering alongside vector similarity queries?"),
-        ("Day 12 - Prompting", "Thanks for sharing. Let's pivot to Day 12 on Prompt Engineering: Have you ever used Few-Shot or Chain-of-Thought prompting to enforce structured outputs in an LLM call? Can you explain how you structured the prompt?"),
-        ("Day 16 - API Integration", "That makes sense. On Day 16 you built a Chatbot API using FastAPI. How did you manage session state and prevent context token window exhaustion during long conversations?"),
-        ("Day 22 - Multi-Agent", "Great explanation. Turning to Day 22 on Multi-Agent Orchestration: How did you design router agents to delegate tasks to specialized worker agents without infinite loops?"),
-        ("Day 23 - Model Context Protocol", "Interesting approach. On Day 23 you explored MCP (Model Context Protocol). What are the key advantages of exposing tools via standardized MCP servers compared to traditional custom REST endpoints?"),
-        ("Day 28 - Docker & K8s", "Understood. Day 28 focused on Docker & Kubernetes Deployment. What health checks and readiness probes did you configure for your FastAPI LLM backend container?"),
-        ("Day 31 - Capstone", "Finally, regarding your Capstone Project on Day 31: If your RAG system returns hallucinated answers, what exact debugging steps do you take to isolate whether it's a retrieval failure or a generation failure?")
+        (7,  "Day 7 – Embeddings",
+              "Welcome! Let's start with vector embeddings. On Day 7 you explored how text is converted into dense vectors. Walk me through how you chose your chunking strategy and distance metric — and what tradeoffs you considered."),
+        (8,  "Day 8 – Vector Databases",
+              "Good. Moving to Day 8 on Vector Databases — ChromaDB vs Pinecone. In a production setting, how do you handle metadata filtering alongside vector similarity search to avoid returning irrelevant results?"),
+        (12, "Day 12 – Prompt Engineering",
+              "Thanks for that. Day 12 covered Prompt Engineering fundamentals. Have you used Chain-of-Thought or Few-Shot prompting to enforce structured LLM outputs? Walk me through a concrete example from your project."),
+        (10, "Day 10 – Retrieval Engine",
+              "Interesting. On Day 10 you built a Retrieval & Matching Engine. How did your query router decide between SQL lookup, vector search, and hybrid retrieval — and how did you evaluate retrieval quality?"),
+        (16, "Day 16 – Chatbot API",
+              "Great. Day 16 was about Chatbot Backend & API Integration with FastAPI. How did you manage session state across multiple turns and prevent token-window exhaustion during long conversations?"),
+        (22, "Day 22 – Multi-Agent",
+              "Excellent. Day 22 focused on Multi-Agent Orchestration using CrewAI or LangGraph. How did you design your router agent to delegate tasks without creating infinite loops or redundant tool calls?"),
+        (23, "Day 23 – MCP",
+              "Day 23 covered the Model Context Protocol. What advantages does exposing tools via a standardized MCP server give you over custom REST endpoints — especially around interoperability and tool discovery?"),
+        (28, "Day 28 – Deployment",
+              "Final question: Day 28 was Docker & Kubernetes Deployment. What readiness probes and health checks did you configure for your FastAPI LLM backend container, and how did you handle rolling restarts?"),
     ]
 
-    # Check if there are retrieved memory facts in the system prompt
+    # Inject memory context if present
     fact_mention = ""
-    if "### RETRIEVED CANDIDATE FACTS & CONTEXT FROM MEMORY" in system_prompt:
-        lines = system_prompt.split("\n")
-        for line in lines:
+    if "### RETRIEVED CANDIDATE FACTS" in system_prompt:
+        for line in system_prompt.split("\n"):
             if line.strip().startswith("- Fact:"):
-                fact_content = line.replace("- Fact:", "").strip()
-                # Clean up cognitive pattern annotation if present
-                fact_content = re.sub(r'\(Cognitive Pattern:.*?\)', '', fact_content).strip()
-                fact_mention = f" [Fact Guided Follow-up: We recall '{fact_content[:60]}...']"
+                fact_raw = line.replace("- Fact:", "").strip()
+                fact_raw = re.sub(r'\(Cognitive Pattern:.*?\)', '', fact_raw).strip()
+                fact_mention = f" [Memory context: '{fact_raw[:60]}…']"
                 break
 
     if user_msg_count < len(questions):
-        day_label, q_text = questions[user_msg_count]
-        # Extract day number
-        day_num = int(re.search(r'Day (\d+)', day_label).group(1)) if 'Day' in day_label else 7
-        
-        reply_prefix = ""
-        if last_user_msg:
-            reply_prefix = f"Thank you for that explanation regarding '{last_user_msg[:40]}...'. "
-        
-        # Append the fact-guided mention to show memory retrieval is working
-        final_reply = f"{reply_prefix}{q_text}"
-        if fact_mention:
-            final_reply += f"{fact_mention}"
+        day_num, _, q_text = questions[user_msg_count]
+        prefix = f"Thank you for that. " if last_user_msg else ""
+        final_reply = f"{prefix}{q_text}{fact_mention}"
+        return {"reply": final_reply, "is_complete": False, "day_covered": day_num, "feedback": None}
 
-        return {
-            "reply": final_reply,
-            "is_complete": False,
-            "day_covered": day_num,
-            "feedback": None
+    # Interview complete
+    return {
+        "reply": "That concludes our technical evaluation. Thank you for walking me through your learning journey — it's been a genuinely insightful conversation.",
+        "is_complete": True,
+        "day_covered": 31,
+        "feedback": {
+            "summary": "The candidate demonstrated strong foundational knowledge across vector search, prompt engineering, API integration, and multi-agent orchestration — with clear evidence of hands-on implementation depth.",
+            "strengths": [
+                "Solid grasp of vector embeddings, chunking strategies, and ChromaDB metadata filtering",
+                "Practical FastAPI session management and context-window handling experience",
+                "Clear understanding of multi-agent routing and MCP tool standardization benefits"
+            ],
+            "gaps": [
+                "Could elaborate further on container observability probes and rolling-restart handling (Day 28–29)",
+                "Token cost optimization metrics and retrieval precision tuning deserve more depth"
+            ],
+            "next": [
+                "Explore hybrid BM25 + dense re-ranking (Cohere Rerank / BGE) for RAG optimization",
+                "Implement OpenTelemetry distributed tracing across FastAPI + multi-agent workflows"
+            ]
         }
-    else:
-        return {
-            "reply": "Interview completed. Thank you for walking through your technical experience today!",
-            "is_complete": True,
-            "day_covered": 31,
-            "feedback": {
-                "summary": "The candidate demonstrated strong foundational knowledge across vector search, prompt engineering, API integration, and multi-agent orchestration.",
-                "strengths": [
-                    "Solid understanding of vector embeddings and ChromaDB metadata filtering",
-                    "Practical experience with FastAPI backend session management and streaming",
-                    "Clear grasp of multi-agent routing architecture and MCP protocol standards"
-                ],
-                "gaps": [
-                    "Could provide more concrete metrics on token latency and retrieval precision tuning",
-                    "Observability and container logging strategy could be expanded"
-                ],
-                "next": [
-                    "Explore advanced re-ranking models (Cohere/BGE) for RAG retrieval optimization",
-                    "Implement OpenTelemetry tracing for multi-agent workflows"
-                ]
-            }
-        }
+    }

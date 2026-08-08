@@ -2,7 +2,7 @@
 
 This file maintains the prompt history and AI agent usage log for the **AI Interview Agent** hackathon submission.
 
-> For full details, see [`PROMPTS.md`](file:///c:/Users/PRINCE/OneDrive/Desktop/BitForge/BitForgeXABTalks/PROMPTS.md).
+
 
 ---
 

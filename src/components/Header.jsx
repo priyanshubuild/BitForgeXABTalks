@@ -1,140 +1,115 @@
 import React from 'react';
-import { Bot, Sparkles, RefreshCw, Cpu, CheckCircle2, AlertCircle, Sun, Moon } from 'lucide-react';
+import { BrainCircuit, RefreshCw, Sun, Moon, Sparkles } from 'lucide-react';
 
-export default function Header({ 
-  candidates, 
-  selectedCandidateId, 
-  onSelectCandidate, 
-  onResetSession, 
-  isBackendOnline, 
-  backendUrl,
-  setBackendUrl,
+export default function Header({
+  candidates,
+  selectedCandidateId,
+  onSelectCandidate,
+  onResetSession,
+  isBackendOnline,
   sessionId,
   theme,
   setTheme
 }) {
   return (
-    <header className="glass-panel" style={{ padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
-      {/* Brand & Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+    <header className="glass" style={{
+      padding: '12px 24px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderLeft: 'none',
+      borderRight: 'none',
+      borderTop: 'none',
+      borderRadius: 0,
+      borderBottom: '1px solid var(--border)',
+      position: 'relative',
+      zIndex: 50,
+      flexShrink: 0,
+    }}>
+      {/* ── Brand ─────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <div style={{
-          width: '42px',
-          height: '42px',
-          borderRadius: '10px',
-          background: 'linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 0 16px var(--primary-glow)'
+          width: 38, height: 38,
+          borderRadius: 'var(--r-lg)',
+          background: 'linear-gradient(135deg, var(--indigo), var(--violet))',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 0 18px var(--indigo-glow)',
+          flexShrink: 0,
         }}>
-          <Bot size={24} color="#ffffff" />
+          <BrainCircuit size={20} color="#fff" strokeWidth={1.8} />
         </div>
+
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--text-main)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h1 style={{
+              fontFamily: 'var(--font-disp)',
+              fontSize: '1.05rem',
+              fontWeight: 800,
+              letterSpacing: '-0.4px',
+              color: 'var(--text-1)',
+              lineHeight: 1,
+            }}>
               AI Interview Agent
             </h1>
-            <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>
-              <Sparkles size={10} /> Hackathon Edition
+            <span className="chip chip-indigo">
+              <Sparkles size={9} strokeWidth={2.5} />
+              BitForge
             </span>
           </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Curriculum-Based Technical Evaluation Engine
+          <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2, letterSpacing: '0.01em' }}>
+            Curriculum-aware technical evaluator · Breeth memory
           </p>
         </div>
       </div>
 
-      {/* Candidate Selector & Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        {/* Candidate Dropdown */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <label style={{ fontSize: '0.7rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Candidate Profile
-          </label>
-          <select 
+      {/* ── Controls ──────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Candidate selector */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span className="section-label" style={{ marginLeft: 2 }}>Candidate</span>
+          <select
+            className="styled-select"
             value={selectedCandidateId}
             onChange={(e) => onSelectCandidate(e.target.value)}
-            style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-main)',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              outline: 'none'
-            }}
           >
             {candidates.map(c => (
               <option key={c.member.id} value={c.member.id}>
-                {c.member.name} ({c.member.jobRole})
+                {c.member.name} · {c.member.jobRole}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Backend Health Badge */}
-        <div className="glass-card" style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {isBackendOnline ? (
-            <>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--emerald)', boxShadow: '0 0 8px var(--emerald-glow)' }}></span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--emerald)', fontWeight: 600 }}>FastAPI Online</span>
-            </>
-          ) : (
-            <>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--amber)' }}></span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--amber)', fontWeight: 600 }}>Offline / Simulated</span>
-            </>
-          )}
+        {/* Backend status */}
+        <div className="glass" style={{
+          padding: '6px 12px',
+          borderRadius: 'var(--r-lg)',
+          display: 'flex', alignItems: 'center', gap: 7,
+        }}>
+          <span className={`status-dot ${isBackendOnline ? 'online' : 'offline'}`} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: isBackendOnline ? 'var(--green)' : 'var(--amber)' }}>
+            {isBackendOnline ? 'Backend Online' : 'Simulated'}
+          </span>
         </div>
 
-        {/* Reset Session Button */}
-        <button 
-          onClick={onResetSession}
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            color: 'var(--text-muted)',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            transition: 'all 0.2s',
-            outline: 'none'
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--text-main)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-        >
-          <RefreshCw size={14} /> Reset Session
+        {/* Session ID */}
+        <span className="mono" style={{ color: 'var(--text-3)', fontSize: 11 }}>
+          {sessionId.slice(0, 14)}
+        </span>
+
+        {/* Reset */}
+        <button className="btn-ghost" onClick={onResetSession} title="Reset interview session">
+          <RefreshCw size={13} />
+          Reset
         </button>
 
-        {/* Theme Toggle Button */}
-        <button 
-          onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            color: 'var(--text-muted)',
-            width: '36px',
-            height: '36px',
-            borderRadius: '50%',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s',
-            outline: 'none'
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--text-main)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-          title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+        {/* Theme toggle */}
+        <button
+          className="icon-btn"
+          onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+          title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} mode`}
         >
-          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+          {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
         </button>
       </div>
     </header>

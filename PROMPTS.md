@@ -161,9 +161,28 @@
 
 ---
 
+### Phase 11: Full Design System Overhaul + Gemini Free LLM Integration
+**Prompt:**
+> strictly follow technical-spec.md, candidates.json and curriculum.md — make best ideal project that actually can win the hackathon. Most unique and great ui and ux — minimal and modern and blurry and glass effects. For completely free, how should it look ideally?
+
+**Actions & Results:**
+- Upgraded `backend/llm_client.py` to support **Google Gemini 2.0 Flash** (completely free) as primary LLM provider, Anthropic Claude as secondary, with a high-quality offline simulation engine as fallback.
+- Added `google-generativeai` to `requirements.txt` and installed the package.
+- Updated `.env` and `.env.example` to document Gemini as the recommended free API option.
+- Performed complete rewrite of `src/index.css`: new Inter + JetBrains Mono font stack from Google Fonts, full CSS token system, glassmorphism `.glass` / `.glass-heavy` utilities, premium animations (`fadeUp`, `blink`, `waveBar`, `shimmer`, `gradientMove`), chip badges, progress bars, avatar styles, wave loading bars, typing cursor keyframe, and ambient glow classes.
+- Rewrote `Header.jsx`: BrainCircuit brand icon, gradient indigo/violet logo glow, inline candidate selector with custom styled-select, session ID display in monospace, ghost reset/theme buttons.
+- Rewrote `ChatStream.jsx`: TypewriterText component with chunk-based animated character reveal, wave loading bars (5-bar animation), updated quick-prompt pills with Zap icon, avatar initials for user, refined bubble shapes with `bubble-ai` / `bubble-user` CSS classes.
+- Rewrote `CandidateSidebar.jsx`: 3-cell stats grid (completed/1st-try/commit-days), animated progress bars, mission heatmap dots (green=passed/gray=skipped/red=failed), fully redesigned topic cards with green check-circle overlays when covered.
+- Rewrote `FeedbackModal.jsx`: gradient header, double confetti burst, Section component with colored dot lists, clean 2-col strengths/gaps grid, Copy Markdown + New Interview buttons.
+- Rewrote `App.jsx`: ambient SVG-less background glow divs, clean 3-column flex layout, Memory Graph sidebar with `GitBranch` icon and `animate-slide-in` per-node animation, improved simulation fallback with more realistic follow-up phrasing.
+- Verified FastAPI backend starts clean on port 8001; Vite dev server starts on port 3001; health check returns 200 OK.
+
+---
+
 ## 🚀 Live Deployment Checklist
 - [x] Public GitHub Repository: `https://github.com/priyanshubuild/BitForgeXABTalks`
-- [x] AI Usage Log: [`PROMPTS.md`](file:///c:/Users/PRINCE/OneDrive/Desktop/BitForge/BitForgeXABTalks/PROMPTS.md) & [`prompt.md`](file:///c:/Users/PRINCE/OneDrive/Desktop/BitForge/BitForgeXABTalks/prompt.md)
+- [x] AI Usage Log: [`PROMPTS.md`](./PROMPTS.md) & [`prompt.md`](./prompt.md)
 - [x] Backend API: `POST /api/interview` & `GET /health` (running on port 8001)
-- [x] React Single Page Application with client fallbacks ready for Vercel/Netlify deployment (running on port 3000)
+- [x] React Single Page Application with client fallbacks ready for Vercel/Netlify deployment (running on port 3001)
+- [x] Free LLM: Google Gemini 2.0 Flash (no cost, generous rate limits)
 
