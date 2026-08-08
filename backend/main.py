@@ -31,6 +31,7 @@ class InterviewResponse(BaseModel):
     reply: str
     done: bool
     feedback: Optional[FeedbackShape] = None
+    memories: Optional[List[Dict[str, Any]]] = None
 
 # Health Check Routes
 @app.get("/health")

@@ -12,6 +12,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [memories, setMemories] = useState([]);
   const [statusMessage, setStatusMessage] = useState('Select a candidate and click "Start Interview"');
 
   const messagesEndRef = useRef(null);
@@ -29,6 +30,7 @@ export default function App() {
     setIsLoading(true);
     setIsDone(false);
     setFeedback(null);
+    setMemories([]);
     setMessages([]);
     setInputText('');
     
@@ -54,6 +56,9 @@ export default function App() {
       setMessages([{ role: 'assistant', content: data.reply }]);
       setIsDone(data.done || false);
       setFeedback(data.feedback || null);
+      if (data.memories && Array.isArray(data.memories)) {
+        setMemories(data.memories);
+      }
       setStatusMessage(`Interview active: Session ID ${newSessionId}`);
     } catch (error) {
       console.error('Error starting interview:', error);
@@ -91,6 +96,16 @@ export default function App() {
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
       setIsDone(data.done || false);
+      
+      // Update running memory items retrieved from Breeth search
+      if (data.memories && Array.isArray(data.memories)) {
+        setMemories(prev => {
+          const existingFacts = new Set(prev.map(m => m.fact.toLowerCase().trim()));
+          const filteredNew = data.memories.filter(m => !existingFacts.has(m.fact.toLowerCase().trim()));
+          return [...prev, ...filteredNew];
+        });
+      }
+
       if (data.done) {
         setFeedback(data.feedback || null);
         setStatusMessage('Interview completed. Structured feedback generated.');
@@ -218,12 +233,47 @@ export default function App() {
           </form>
         </div>
 
+        {/* Candidate Memory Graph sidebar */}
+        {sessionId && (
+          <div style={styles.memorySection}>
+            <div style={styles.memoryHeader}>
+              <span style={{ fontSize: '1.25rem' }}>🧠</span>
+              <h2 style={styles.panelTitle}>Things Learned</h2>
+            </div>
+            <div style={styles.memoryContent}>
+              {memories.length === 0 ? (
+                <div style={styles.memoryEmpty}>
+                  <p>Memory graph is empty. Formulate a substantive technical reply to write memory nodes.</p>
+                </div>
+              ) : (
+                <div style={styles.memoryList}>
+                  {memories.map((m, idx) => (
+                    <div key={idx} style={styles.memoryCard}>
+                      <div style={styles.memoryMeta}>
+                        <span style={styles.memoryNode}>{m.source_node}</span>
+                        <span style={styles.memoryRelation}>➔</span>
+                        <span style={styles.memoryNode}>{m.target_node}</span>
+                      </div>
+                      <div style={styles.memoryFact}>{m.fact}</div>
+                      {m.cognitive_pattern && (
+                        <div style={styles.memoryPattern}>
+                          <strong>Cognitive Pattern:</strong> {m.cognitive_pattern}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Feedback Panel */}
         {isDone && feedback && (
           <div style={styles.feedbackSection}>
             <div style={styles.feedbackHeader}>
               <span style={{ fontSize: '1.25rem' }}>🏆</span>
-              <h2>Interview Evaluation Report</h2>
+              <h2 style={styles.panelTitle}>Evaluation Report</h2>
             </div>
             
             <div style={styles.feedbackContent}>
@@ -381,7 +431,6 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     flex: '1',
-    borderRight: '1px solid #232d42',
     backgroundColor: '#0a0d14',
     overflow: 'hidden',
   },
@@ -458,11 +507,99 @@ const styles = {
     fontWeight: '600',
     cursor: 'pointer',
   },
-  feedbackSection: {
-    width: '450px',
+  memorySection: {
+    width: '320px',
     display: 'flex',
     flexDirection: 'column',
     backgroundColor: '#111726',
+    borderLeft: '1px solid #232d42',
+    overflowY: 'auto',
+  },
+  memoryHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '20px 24px',
+    borderBottom: '1px solid #232d42',
+    backgroundColor: '#141c2f',
+  },
+  panelTitle: {
+    fontSize: '1rem',
+    fontWeight: '700',
+    color: '#fff',
+    margin: 0,
+    fontFamily: "'Space Grotesk', sans-serif",
+  },
+  memoryContent: {
+    padding: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    flex: '1',
+    minHeight: 0,
+  },
+  memoryEmpty: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    textAlign: 'center',
+    color: '#4b5563',
+    fontSize: '0.8rem',
+    padding: '16px',
+  },
+  memoryList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  memoryCard: {
+    backgroundColor: 'rgba(10, 13, 20, 0.4)',
+    border: '1px solid #232d42',
+    borderRadius: '8px',
+    padding: '12px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  memoryMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    flexWrap: 'wrap',
+  },
+  memoryNode: {
+    fontSize: '0.7rem',
+    fontWeight: '600',
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    color: '#a5b4fc',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    border: '1px solid rgba(99, 102, 241, 0.2)',
+  },
+  memoryRelation: {
+    fontSize: '0.8rem',
+    color: '#9ca3af',
+  },
+  memoryFact: {
+    fontSize: '0.8rem',
+    lineHeight: '1.4',
+    color: '#d1d5db',
+  },
+  memoryPattern: {
+    fontSize: '0.7rem',
+    color: '#34d399',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    border: '1px solid rgba(16, 185, 129, 0.15)',
+    padding: '3px 6px',
+    borderRadius: '4px',
+    marginTop: '2px',
+  },
+  feedbackSection: {
+    width: '380px',
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: '#141c2f',
+    borderLeft: '1px solid #232d42',
     overflowY: 'auto',
   },
   feedbackHeader: {
@@ -471,13 +608,13 @@ const styles = {
     gap: '10px',
     padding: '20px 24px',
     borderBottom: '1px solid #232d42',
-    backgroundColor: '#141c2f',
+    backgroundColor: '#1b253b',
   },
   feedbackContent: {
-    padding: '24px',
+    padding: '20px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '24px',
+    gap: '20px',
   },
   sectionBlock: {
     backgroundColor: 'rgba(10, 13, 20, 0.4)',
@@ -486,7 +623,7 @@ const styles = {
     padding: '16px',
   },
   sectionTitle: {
-    fontSize: '0.9rem',
+    fontSize: '0.85rem',
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
@@ -495,7 +632,7 @@ const styles = {
     fontFamily: "'Space Grotesk', sans-serif",
   },
   summaryText: {
-    fontSize: '0.9rem',
+    fontSize: '0.85rem',
     lineHeight: '1.6',
     margin: 0,
     color: '#d1d5db',
@@ -514,7 +651,7 @@ const styles = {
     gap: '8px',
   },
   listItem: {
-    fontSize: '0.85rem',
+    fontSize: '0.8rem',
     lineHeight: '1.4',
     color: '#d1d5db',
     display: 'flex',

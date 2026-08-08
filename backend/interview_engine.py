@@ -280,6 +280,7 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
 
     # 4. Search memory graph using Breeth Client
     retrieved_facts = []
+    memories_list = []
     search_query = f"{candidate_name} {day_topic_str}"
     try:
         search_res = breeth_client.search(query=search_query, group_id=session_id, limit=5)
@@ -293,6 +294,14 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
                 if cognitive_pattern:
                     digest_item += f" (Cognitive Pattern: {cognitive_pattern})"
                 retrieved_facts.append(digest_item)
+
+                # Store structured format for the UI panel
+                memories_list.append({
+                    "source_node": edge.get("source_node") or edge.get("source") or "Candidate",
+                    "target_node": edge.get("target_node") or edge.get("target") or "Topic",
+                    "fact": fact_content,
+                    "cognitive_pattern": cognitive_pattern
+                })
     except Exception as search_err:
         print(f"[Breeth Log] Search failed: {search_err}")
 
@@ -338,12 +347,14 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
         return {
             "reply": reply_text,
             "done": True,
-            "feedback": feedback_obj
+            "feedback": feedback_obj,
+            "memories": memories_list
         }
     else:
         return {
             "reply": reply_text,
-            "done": False
+            "done": False,
+            "memories": memories_list
         }
 
 

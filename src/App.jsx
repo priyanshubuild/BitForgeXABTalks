@@ -17,6 +17,7 @@ export default function App() {
   const [targetDays, setTargetDays] = useState([]);
   const [questionsAsked, setQuestionsAsked] = useState(0);
   const [daysCovered, setDaysCovered] = useState(new Set());
+  const [memories, setMemories] = useState([]);
   
   const [isLoading, setIsLoading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -49,6 +50,7 @@ export default function App() {
     setIsLoading(true);
     setIsComplete(false);
     setFeedback(null);
+    setMemories([]);
     setQuestionsAsked(1);
     
     // Derive initial target days
@@ -82,6 +84,9 @@ export default function App() {
         });
         const data = await res.json();
         setMessages([{ role: 'assistant', content: data.reply }]);
+        if (data.memories && Array.isArray(data.memories)) {
+          setMemories(data.memories);
+        }
         setIsLoading(false);
         return;
       } catch (e) {
@@ -132,6 +137,15 @@ export default function App() {
         // Pick up covered days dynamically
         if (targetDays[questionsAsked % targetDays.length]) {
           setDaysCovered(prev => new Set([...prev, targetDays[questionsAsked % targetDays.length].day]));
+        }
+
+        // Update memories from Breeth search
+        if (data.memories && Array.isArray(data.memories)) {
+          setMemories(prev => {
+            const existingFacts = new Set(prev.map(m => m.fact.toLowerCase().trim()));
+            const filteredNew = data.memories.filter(m => !existingFacts.has(m.fact.toLowerCase().trim()));
+            return [...prev, ...filteredNew];
+          });
         }
 
         if (data.done) {
@@ -224,6 +238,102 @@ export default function App() {
           isComplete={isComplete}
           onShowFeedback={() => setShowFeedbackModal(true)}
         />
+
+        {/* Candidate Memory Graph sidebar */}
+        <div style={{
+          width: '300px',
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: '#111726',
+          borderLeft: '1px solid #232d42',
+          overflowY: 'auto',
+          color: '#f3f4f6',
+          fontFamily: "'Plus Jakarta Sans', sans-serif"
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '20px 24px',
+            borderBottom: '1px solid #232d42',
+            backgroundColor: '#141c2f'
+          }}>
+            <span style={{ fontSize: '1.25rem' }}>🧠</span>
+            <h2 style={{
+              fontSize: '1rem',
+              fontWeight: '700',
+              color: '#fff',
+              margin: 0,
+              fontFamily: "'Space Grotesk', sans-serif"
+            }}>Things Learned</h2>
+          </div>
+          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: '1', minHeight: 0 }}>
+            {memories.length === 0 ? (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                textAlign: 'center',
+                color: '#4b5563',
+                fontSize: '0.8rem',
+                padding: '16px'
+              }}>
+                <p>Memory graph is empty. Formulate a substantive technical reply to write memory nodes.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {memories.map((m, idx) => (
+                  <div key={idx} style={{
+                    backgroundColor: 'rgba(10, 13, 20, 0.4)',
+                    border: '1px solid #232d42',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: '0.7rem',
+                        fontWeight: '600',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        color: '#a5b4fc',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(99, 102, 241, 0.2)'
+                      }}>{m.source_node}</span>
+                      <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>➔</span>
+                      <span style={{
+                        fontSize: '0.7rem',
+                        fontWeight: '600',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        color: '#a5b4fc',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(99, 102, 241, 0.2)'
+                      }}>{m.target_node}</span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', lineHeight: '1.4', color: '#d1d5db' }}>{m.fact}</div>
+                    {m.cognitive_pattern && (
+                      <div style={{
+                        fontSize: '0.7rem',
+                        color: '#34d399',
+                        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                        border: '1px solid rgba(16, 185, 129, 0.15)',
+                        padding: '3px 6px',
+                        borderRadius: '4px',
+                        marginTop: '2px'
+                      }}>
+                        <strong>Cognitive Pattern:</strong> {m.cognitive_pattern}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {showFeedbackModal && (
