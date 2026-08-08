@@ -38,3 +38,19 @@ This file maintains the prompt history and AI agent usage log for the **AI Inter
 - Resolved port 8000 conflict by switching default backend port to 8001
 - Implemented the dedicated final feedback LLM call with shape validation, retries, and fallback objects to prevent API crashes.
 
+### Prompt 7: Breeth API Client Scaffolding
+- Added `BREETH_API_KEY` to `.env` and `.env.example`
+- Implemented robust `backend/breeth_client.py` client wrapper for Breeth API v1
+- Implemented `write_episode` and `search` methods with graceful `429` (rate limit/quota exceeded) error tolerance returning `None` instead of throwing exceptions
+- Created and executed a standalone test client `test_breeth.py` to verify API key connectivity
+
+### Prompt 8: Breeth Ingestion & Semantic Search Integration
+- Integrated `BreethClient` into `process_turn()` inside `backend/interview_engine.py`
+- Implemented smart substantive answer analysis (`is_substantive_answer()`) to filter out trivial replies and skips to preserve intent budget
+- Enabled dynamic context injection: queries Breeth search each turn and appends retrieved facts to the LLM system prompt for guided follow-up questions
+
+### Prompt 9: Candidate Memory Graph UI Panel
+- Updated the FastAPI backend `/api/interview` response schema to optionally return search memories containing source/target nodes, facts, and cognitive patterns
+- Implemented Candidate Memory Graph sidebar panels in both the primary dashboard (`src/App.jsx`) and local test client (`frontend/src/App.jsx`) to display learned candidate facts in real-time
+
+
