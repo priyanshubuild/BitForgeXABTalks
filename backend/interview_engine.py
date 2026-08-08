@@ -1,7 +1,35 @@
 import json
 import os
+import re
 from typing import Dict, Any, List, Set, Tuple, Optional
 from backend.llm_client import call_llm
+from backend.breeth_client import BreethClient
+
+# Initialize Breeth memory layer
+breeth_client = BreethClient()
+
+def is_substantive_answer(answer: str) -> bool:
+    """
+    Checks if the candidate's answer is substantive (longer than a couple
+    sentences or 15 words, and doesn't contain a skip/dont know pattern).
+    """
+    cleaned = answer.strip().lower()
+    
+    # Filter out trivial skips/don't know responses
+    skip_phrases = [
+        "skip", "i don't know", "i dont know", "no idea", "pass", 
+        "not sure", "don't know", "dont know", "skip this"
+    ]
+    for phrase in skip_phrases:
+        if phrase in cleaned and len(cleaned) < 25:
+            return False
+            
+    # Substantive if word count is > 15 or we have at least 2 sentences
+    sentences = [s for s in re.split(r'[.!?]+', cleaned) if s.strip()]
+    if len(sentences) >= 2 or len(cleaned.split()) > 15:
+        return True
+        
+    return False
 
 # Load curriculum.json from project root
 CURRICULUM_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "curriculum.json")
@@ -192,6 +220,62 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
         }
 
     session = sessions[session_id]
+
+    # 1. Retrieve candidate name and last question before updating history
+    candidate_name = session["candidate"]["member"]["name"]
+    last_question = ""
+    if session["messages"]:
+        for msg in reversed(session["messages"]):
+            if msg["role"] == "assistant":
+                last_question = msg["content"]
+                break
+
+    # 2. Format Breeth Episode Summary
+    day_match = re.search(r"Day\s*(\d+)", last_question, re.IGNORECASE)
+    day_num = int(day_match.group(1)) if day_match else None
+    
+    topic = ""
+    if day_num:
+        for d in CURRICULUM_DATA.get("days", []):
+            if d.get("day") == day_num:
+                topic = d.get("topic", "")
+                break
+                
+    day_topic_str = f"Day {day_num}"
+    if topic:
+        day_topic_str += f" ({topic})"
+    elif not day_num:
+        day_topic_str = "General technical evaluation"
+
+    episode_content = (
+        f"Candidate Name: {candidate_name}\n"
+        f"Topic Asked About: {day_topic_str}\n"
+        f"Interviewer Question: {last_question}\n"
+        f"Candidate Answer: {user_message}"
+    )
+
+    # Determine if substantive for extract_intent
+    substantive = is_substantive_answer(user_message)
+    
+    # 3. Call Breeth Client (additive layer - errors won't break the flow)
+    try:
+        # group_id=sessionId to isolate session memories
+        res_episode = breeth_client.write_episode(
+            content=episode_content,
+            group_id=session_id,
+            extract_intent=substantive
+        )
+        if res_episode:
+            ep_name = res_episode.get("episode_name", "N/A")
+            extracted = res_episode.get("extracted", {})
+            ent_count = extracted.get("entities", 0)
+            edge_count = extracted.get("edges", 0)
+            print(f"[Breeth Log] Episode '{ep_name}' written successfully. Extracted entities: {ent_count}, edges: {edge_count}")
+        else:
+            print("[Breeth Log] write_episode returned None (possibly due to 429 rate limit or config error).")
+    except Exception as breeth_err:
+        print(f"[Breeth Log] Failed to write episode to Breeth: {breeth_err}")
+
     session["messages"].append({"role": "user", "content": user_message})
 
     llm_res = call_llm(session["system_prompt"], session["messages"])
