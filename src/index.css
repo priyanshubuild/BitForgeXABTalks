@@ -1,31 +1,56 @@
 :root {
-  --bg-dark: #090c15;
-  --bg-card: #111726;
-  --bg-card-hover: #182033;
-  --border-color: #232d42;
-  --border-glow: #3b82f633;
+  /* Apple System Fonts */
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* Default Dark / OLED theme */
+  --bg-dark: #000000;
+  --bg-card: #1c1c1e;
+  --bg-card-hover: #2c2c2e;
+  --border-color: #2c2c2e;
+  --border-glow: rgba(10, 132, 255, 0.15);
   
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --primary-glow: rgba(99, 102, 241, 0.25);
+  --primary: #0a84ff;
+  --primary-hover: #2f97ff;
+  --primary-glow: rgba(10, 132, 255, 0.25);
   
-  --emerald: #10b981;
-  --emerald-glow: rgba(16, 185, 129, 0.2);
-  --amber: #f59e0b;
-  --rose: #f43f5e;
+  --emerald: #30d158;
+  --emerald-glow: rgba(48, 209, 88, 0.2);
+  --amber: #ff9f0a;
+  --rose: #ff453a;
   
-  --text-main: #f3f4f6;
-  --text-muted: #9ca3af;
-  --text-dim: #6b7280;
+  --text-main: #f5f5f7;
+  --text-muted: #86868b;
+  --text-dim: #48484a;
+}
+
+:root[data-theme="light"] {
+  /* Apple Light theme */
+  --bg-dark: #f5f5f7;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f0f2;
+  --border-color: #e5e5ea;
+  --border-glow: rgba(0, 125, 250, 0.1);
   
-  --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: 'Outfit', sans-serif;
+  --primary: #0071e3;
+  --primary-hover: #0077ed;
+  --primary-glow: rgba(0, 113, 227, 0.15);
+  
+  --emerald: #34c759;
+  --emerald-glow: rgba(52, 199, 89, 0.15);
+  --amber: #ff9500;
+  --rose: #ff3b30;
+  
+  --text-main: #1d1d1f;
+  --text-muted: #86868b;
+  --text-dim: #aeaea2;
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 body {
@@ -37,20 +62,33 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Custom Scrollbar */
+/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-dark);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-color);
-  border-radius: 4px;
+  border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
+  background: var(--text-muted);
+}
+
+/* Glassmorphism Panels */
+.glass-panel {
+  background: rgba(28, 28, 30, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid var(--border-color);
+}
+
+:root[data-theme="light"] .glass-panel {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--border-color);
 }
 
 /* Animations */
@@ -70,27 +108,7 @@ body {
 }
 
 .animate-slide-up {
-  animation: slideUp 0.3s ease-out forwards;
-}
-
-/* Glassmorphism */
-.glass-panel {
-  background: rgba(17, 23, 38, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-color);
-}
-
-.glass-card {
-  background: rgba(24, 32, 51, 0.6);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  transition: border-color 0.2s, transform 0.2s;
-}
-
-.glass-card:hover {
-  border-color: var(--primary);
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Status Badges */
@@ -99,27 +117,26 @@ body {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: 20px;
+  border-radius: 99px;
   font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-transform: capitalize;
 }
 
 .badge-passed {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(48, 209, 88, 0.15);
+  color: var(--emerald);
+  border: 1px solid rgba(48, 209, 88, 0.2);
 }
 
 .badge-skipped {
-  background: rgba(244, 63, 94, 0.15);
-  color: #fb7185;
-  border: 1px solid rgba(244, 63, 94, 0.3);
+  background: rgba(255, 69, 58, 0.15);
+  color: var(--rose);
+  border: 1px solid rgba(255, 69, 58, 0.2);
 }
 
 .badge-primary {
-  background: rgba(99, 102, 241, 0.15);
-  color: #a5b4fc;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(10, 132, 255, 0.15);
+  color: var(--primary);
+  border: 1px solid rgba(10, 132, 255, 0.2);
 }

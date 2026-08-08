@@ -18,11 +18,16 @@ export default function App() {
   const [questionsAsked, setQuestionsAsked] = useState(0);
   const [daysCovered, setDaysCovered] = useState(new Set());
   const [memories, setMemories] = useState([]);
-  
   const [isLoading, setIsLoading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [theme, setTheme] = useState('dark');
+
+  // Synchronize document theme attribute
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   const activeCandidate = candidates.find(c => c.member.id === selectedCandidateId) || candidates[0];
 
@@ -220,6 +225,8 @@ export default function App() {
         backendUrl={backendUrl}
         setBackendUrl={setBackendUrl}
         sessionId={sessionId}
+        theme={theme}
+        setTheme={setTheme}
       />
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>

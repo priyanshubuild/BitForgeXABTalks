@@ -95,7 +95,7 @@ export default function ChatStream({
         {messages.length === 0 && (
           <div style={{ textAlign: 'center', margin: 'auto', color: 'var(--text-muted)' }}>
             <Bot size={48} color="var(--primary)" style={{ opacity: 0.8, marginBottom: '12px' }} />
-            <h3 style={{ color: '#fff', fontSize: '1.1rem', marginBottom: '6px' }}>Interview Ready</h3>
+            <h3 style={{ color: 'var(--text-main)', fontSize: '1.1rem', marginBottom: '6px' }}>Interview Ready</h3>
             <p style={{ fontSize: '0.85rem' }}>Select a candidate profile to initialize the AI evaluation session.</p>
           </div>
         )}
@@ -119,13 +119,13 @@ export default function ChatStream({
                 width: '36px',
                 height: '36px',
                 borderRadius: '10px',
-                background: isAgent ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : 'var(--bg-card-hover)',
+                background: isAgent ? 'linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%)' : 'var(--bg-card-hover)',
                 border: isAgent ? 'none' : '1px solid var(--border-color)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                color: '#fff'
+                color: 'var(--text-main)'
               }}>
                 {isAgent ? <Bot size={18} /> : <User size={18} />}
               </div>
@@ -133,16 +133,16 @@ export default function ChatStream({
               {/* Bubble Content */}
               <div className="glass-card" style={{
                 padding: '14px 18px',
-                background: isAgent ? 'rgba(24, 32, 51, 0.75)' : 'rgba(49, 46, 129, 0.6)',
+                background: isAgent ? 'var(--bg-card)' : 'var(--primary-glow)',
                 borderColor: isAgent ? 'var(--border-color)' : 'var(--primary)',
                 borderRadius: isAgent ? '0 14px 14px 14px' : '14px 0 14px 14px'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: isAgent ? 'var(--primary)' : '#a5b4fc' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: isAgent ? 'var(--primary)' : 'var(--text-muted)' }}>
                     {isAgent ? 'AI Interviewer' : candidate?.member?.name || 'Candidate'}
                   </span>
                 </div>
-                <p style={{ fontSize: '0.92rem', lineHeight: '1.55', whiteSpace: 'pre-wrap', color: '#f3f4f6' }}>
+                <p style={{ fontSize: '0.92rem', lineHeight: '1.55', whiteSpace: 'pre-wrap', color: 'var(--text-main)' }}>
                   {msg.content}
                 </p>
               </div>
@@ -157,11 +157,11 @@ export default function ChatStream({
               width: '36px',
               height: '36px',
               borderRadius: '10px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              background: 'linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#fff'
+              color: 'var(--text-main)'
             }}>
               <Bot size={18} />
             </div>
@@ -184,7 +184,7 @@ export default function ChatStream({
               key={idx}
               onClick={() => setInput(qp)}
               style={{
-                background: 'rgba(24, 32, 51, 0.6)',
+                background: 'var(--bg-card)',
                 border: '1px solid var(--border-color)',
                 color: 'var(--text-muted)',
                 padding: '6px 12px',

@@ -26,7 +26,7 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
           width: '50px',
           height: '50px',
           borderRadius: '12px',
-          background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+          background: 'linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -37,7 +37,7 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
           {member.name.split(' ').map(n => n[0]).join('')}
         </div>
         <div>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff' }}>{member.name}</h3>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{member.name}</h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>{member.jobRole}</p>
           <div style={{ display: 'flex', gap: '10px', marginTop: '4px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             <span><Clock size={12} style={{ display: 'inline', verticalAlign: '-1px' }} /> {member.yearsExperience} yrs exp</span>
@@ -102,10 +102,10 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
               <div key={td.day} className="glass-card" style={{ 
                 padding: '10px 12px', 
                 borderColor: isCovered ? 'var(--emerald)' : 'var(--border-color)',
-                background: isCovered ? 'rgba(16, 185, 129, 0.08)' : 'rgba(24, 32, 51, 0.6)'
+                background: isCovered ? 'var(--emerald-glow)' : 'var(--bg-card)'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ffffff' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)' }}>
                     Day {td.day} - {td.title}
                   </span>
                   {td.passed ? (
@@ -130,7 +130,7 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', textAlign: 'center' }}>
           <div style={{ background: 'var(--bg-dark)', padding: '8px', borderRadius: '8px' }}>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ffffff' }}>{signals.missionsCompleted}</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>{signals.missionsCompleted}</div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Completed</div>
           </div>
           <div style={{ background: 'var(--bg-dark)', padding: '8px', borderRadius: '8px' }}>

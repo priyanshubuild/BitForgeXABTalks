@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, Sparkles, RefreshCw, Cpu, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Bot, Sparkles, RefreshCw, Cpu, CheckCircle2, AlertCircle, Sun, Moon } from 'lucide-react';
 
 export default function Header({ 
   candidates, 
@@ -9,7 +9,9 @@ export default function Header({
   isBackendOnline, 
   backendUrl,
   setBackendUrl,
-  sessionId 
+  sessionId,
+  theme,
+  setTheme
 }) {
   return (
     <header className="glass-panel" style={{ padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
@@ -19,7 +21,7 @@ export default function Header({
           width: '42px',
           height: '42px',
           borderRadius: '10px',
-          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+          background: 'linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -29,7 +31,7 @@ export default function Header({
         </div>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.3px', color: '#ffffff' }}>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--text-main)' }}>
               AI Interview Agent
             </h1>
             <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>
@@ -60,7 +62,8 @@ export default function Header({
               borderRadius: '8px',
               fontSize: '0.85rem',
               fontWeight: 600,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              outline: 'none'
             }}
           >
             {candidates.map(c => (
@@ -76,12 +79,12 @@ export default function Header({
           {isBackendOnline ? (
             <>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--emerald)', boxShadow: '0 0 8px var(--emerald-glow)' }}></span>
-              <span style={{ fontSize: '0.8rem', color: '#34d399', fontWeight: 600 }}>FastAPI Online</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--emerald)', fontWeight: 600 }}>FastAPI Online</span>
             </>
           ) : (
             <>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--amber)' }}></span>
-              <span style={{ fontSize: '0.8rem', color: '#fbbf24', fontWeight: 600 }}>Offline / Simulated</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--amber)', fontWeight: 600 }}>Offline / Simulated</span>
             </>
           )}
         </div>
@@ -101,12 +104,37 @@ export default function Header({
             gap: '6px',
             fontSize: '0.8rem',
             fontWeight: 600,
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
+            outline: 'none'
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = '#fff'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--text-main)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
         >
           <RefreshCw size={14} /> Reset Session
+        </button>
+
+        {/* Theme Toggle Button */}
+        <button 
+          onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-muted)',
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s',
+            outline: 'none'
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--text-main)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+          title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+        >
+          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
         </button>
       </div>
     </header>

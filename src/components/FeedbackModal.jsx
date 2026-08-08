@@ -83,7 +83,7 @@ ${(feedback.next || []).map(n => `- ${n}`).join('\n')}
               <Award size={22} />
             </div>
             <div>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff' }}>Interview Evaluation Report</h2>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)' }}>Interview Evaluation Report</h2>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 Candidate: <strong>{candidate?.member?.name}</strong> ({candidate?.member?.jobRole})
               </p>
@@ -109,11 +109,11 @@ ${(feedback.next || []).map(n => `- ${n}`).join('\n')}
             </p>
           </div>
 
-          {/* Strengths & Gaps Grid */}
+          {/* Key Strengths & Growth Areas Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             {/* Strengths */}
             <div className="glass-card" style={{ padding: '16px' }}>
-              <h4 style={{ fontSize: '0.85rem', color: '#34d399', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+              <h4 style={{ fontSize: '0.85rem', color: 'var(--emerald)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                 <CheckCircle2 size={16} /> Key Strengths
               </h4>
               <ul style={{ paddingLeft: '18px', fontSize: '0.85rem', color: 'var(--text-main)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -125,7 +125,7 @@ ${(feedback.next || []).map(n => `- ${n}`).join('\n')}
 
             {/* Gaps */}
             <div className="glass-card" style={{ padding: '16px' }}>
-              <h4 style={{ fontSize: '0.85rem', color: '#fb7185', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+              <h4 style={{ fontSize: '0.85rem', color: 'var(--rose)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                 <AlertTriangle size={16} /> Areas for Growth
               </h4>
               <ul style={{ paddingLeft: '18px', fontSize: '0.85rem', color: 'var(--text-main)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -138,7 +138,7 @@ ${(feedback.next || []).map(n => `- ${n}`).join('\n')}
 
           {/* Next Steps */}
           <div className="glass-card" style={{ padding: '16px' }}>
-            <h4 style={{ fontSize: '0.85rem', color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+            <h4 style={{ fontSize: '0.85rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
               <ArrowRight size={16} /> Recommended Next Steps
             </h4>
             <ul style={{ paddingLeft: '18px', fontSize: '0.85rem', color: 'var(--text-main)', display: 'flex', flexDirection: 'column', gap: '6px' }}>

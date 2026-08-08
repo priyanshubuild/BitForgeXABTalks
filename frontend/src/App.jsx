@@ -14,8 +14,14 @@ export default function App() {
   const [feedback, setFeedback] = useState(null);
   const [memories, setMemories] = useState([]);
   const [statusMessage, setStatusMessage] = useState('Select a candidate and click "Start Interview"');
+  const [theme, setTheme] = useState('dark');
 
   const messagesEndRef = useRef(null);
+
+  // Synchronize document theme attribute
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   // Auto-scroll chat to bottom when messages update
   useEffect(() => {
@@ -130,7 +136,17 @@ export default function App() {
           <h1 style={styles.title}>AI Interview Simulator</h1>
           <span style={styles.badge}>Local Test Client</span>
         </div>
-        <div style={styles.status}>{statusMessage}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={styles.status}>{statusMessage}</div>
+          {/* Theme Toggle Button */}
+          <button 
+            onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+            style={styles.btnTheme}
+            title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
+        </div>
       </header>
 
       {/* Control Panel */}
@@ -284,11 +300,11 @@ export default function App() {
 
               <div style={styles.gridContainer}>
                 <div style={styles.sectionBlock}>
-                  <h3 style={{ ...styles.sectionTitle, color: '#34d399' }}>Strengths</h3>
+                  <h3 style={{ ...styles.sectionTitle, color: 'var(--emerald)' }}>Strengths</h3>
                   <ul style={styles.list}>
                     {feedback.strengths?.map((item, i) => (
                       <li key={i} style={styles.listItem}>
-                        <span style={{ color: '#10b981', marginRight: '8px' }}>✓</span>
+                        <span style={{ color: 'var(--emerald)', marginRight: '8px' }}>✓</span>
                         {item}
                       </li>
                     ))}
@@ -296,11 +312,11 @@ export default function App() {
                 </div>
 
                 <div style={styles.sectionBlock}>
-                  <h3 style={{ ...styles.sectionTitle, color: '#f87171' }}>Gaps & Weaknesses</h3>
+                  <h3 style={{ ...styles.sectionTitle, color: 'var(--rose)' }}>Gaps & Weaknesses</h3>
                   <ul style={styles.list}>
                     {feedback.gaps?.map((item, i) => (
                       <li key={i} style={styles.listItem}>
-                        <span style={{ color: '#ef4444', marginRight: '8px' }}>⚠</span>
+                        <span style={{ color: 'var(--rose)', marginRight: '8px' }}>⚠</span>
                         {item}
                       </li>
                     ))}
@@ -309,11 +325,11 @@ export default function App() {
               </div>
 
               <div style={styles.sectionBlock}>
-                <h3 style={{ ...styles.sectionTitle, color: '#60a5fa' }}>Next Steps & Recommendations</h3>
+                <h3 style={{ ...styles.sectionTitle, color: 'var(--primary)' }}>Next Steps & Recommendations</h3>
                 <ul style={styles.list}>
                   {feedback.next?.map((item, i) => (
                     <li key={i} style={styles.listItem}>
-                      <span style={{ color: '#3b82f6', marginRight: '8px' }}>→</span>
+                      <span style={{ color: 'var(--primary)', marginRight: '8px' }}>→</span>
                       {item}
                     </li>
                   ))}
@@ -335,9 +351,9 @@ const styles = {
     height: '100vh',
     maxHeight: '100vh',
     width: '100vw',
-    backgroundColor: '#0a0d14',
-    color: '#f3f4f6',
-    fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+    backgroundColor: 'var(--bg-dark)',
+    color: 'var(--text-main)',
+    fontFamily: "var(--font-family)",
     overflow: 'hidden',
   },
   header: {
@@ -345,9 +361,8 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '12px 24px',
-    backgroundColor: 'rgba(17, 23, 38, 0.8)',
-    borderBottom: '1px solid #232d42',
-    backdropFilter: 'blur(10px)',
+    backgroundColor: 'var(--bg-card)',
+    borderBottom: '1px solid var(--border-color)',
   },
   titleContainer: {
     display: 'flex',
@@ -360,14 +375,14 @@ const styles = {
   title: {
     fontSize: '1.25rem',
     fontWeight: '700',
-    color: '#fff',
+    color: 'var(--text-main)',
     margin: 0,
-    fontFamily: "'Space Grotesk', sans-serif",
+    fontFamily: "var(--font-display)",
   },
   badge: {
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    color: '#a5b4fc',
-    border: '1px solid rgba(99, 102, 241, 0.3)',
+    backgroundColor: 'var(--primary-glow)',
+    color: 'var(--primary)',
+    border: '1px solid var(--border-color)',
     borderRadius: '12px',
     padding: '2px 8px',
     fontSize: '0.7rem',
@@ -376,15 +391,28 @@ const styles = {
   },
   status: {
     fontSize: '0.85rem',
-    color: '#9ca3af',
+    color: 'var(--text-muted)',
+  },
+  btnTheme: {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-color)',
+    cursor: 'pointer',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.9rem',
+    outline: 'none',
   },
   controlPanel: {
     display: 'flex',
     alignItems: 'center',
     gap: '20px',
     padding: '16px 24px',
-    backgroundColor: 'rgba(20, 27, 45, 0.4)',
-    borderBottom: '1px solid #232d42',
+    backgroundColor: 'var(--bg-dark)',
+    borderBottom: '1px solid var(--border-color)',
   },
   formGroup: {
     display: 'flex',
@@ -395,13 +423,13 @@ const styles = {
   },
   label: {
     fontSize: '0.75rem',
-    color: '#9ca3af',
+    color: 'var(--text-muted)',
     fontWeight: '500',
   },
   select: {
-    backgroundColor: '#111726',
-    border: '1px solid #232d42',
-    color: '#f3f4f6',
+    backgroundColor: 'var(--bg-card)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-main)',
     borderRadius: '6px',
     padding: '8px 12px',
     fontSize: '0.9rem',
@@ -410,7 +438,7 @@ const styles = {
     width: '100%',
   },
   btnStart: {
-    backgroundColor: '#6366f1',
+    backgroundColor: 'var(--primary)',
     border: 'none',
     color: '#fff',
     borderRadius: '6px',
@@ -431,7 +459,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     flex: '1',
-    backgroundColor: '#0a0d14',
+    backgroundColor: 'var(--bg-dark)',
     overflow: 'hidden',
   },
   chatFeed: {
@@ -448,7 +476,7 @@ const styles = {
     justifyContent: 'center',
     height: '100%',
     textAlign: 'center',
-    color: '#6b7280',
+    color: 'var(--text-muted)',
     padding: '40px',
   },
   messageRow: {
@@ -461,16 +489,16 @@ const styles = {
     maxWidth: '70%',
     lineHeight: '1.5',
     fontSize: '0.95rem',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
   },
   bubbleAI: {
-    backgroundColor: '#1f2937',
-    color: '#f3f4f6',
+    backgroundColor: 'var(--bg-card)',
+    color: 'var(--text-main)',
     borderBottomLeftRadius: '2px',
-    border: '1px solid #2d3748',
+    border: '1px solid var(--border-color)',
   },
   bubbleUser: {
-    backgroundColor: '#4f46e5',
+    backgroundColor: 'var(--primary)',
     color: '#ffffff',
     borderBottomRightRadius: '2px',
   },
@@ -483,22 +511,22 @@ const styles = {
   inputArea: {
     display: 'flex',
     padding: '16px 24px',
-    borderTop: '1px solid #232d42',
-    backgroundColor: '#111726',
+    borderTop: '1px solid var(--border-color)',
+    backgroundColor: 'var(--bg-card)',
     gap: '12px',
   },
   input: {
     flex: '1',
-    backgroundColor: '#0a0d14',
-    border: '1px solid #232d42',
-    color: '#f3f4f6',
+    backgroundColor: 'var(--bg-dark)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-main)',
     borderRadius: '6px',
     padding: '12px 16px',
     fontSize: '0.95rem',
     outline: 'none',
   },
   btnSend: {
-    backgroundColor: '#4f46e5',
+    backgroundColor: 'var(--primary)',
     color: '#fff',
     border: 'none',
     borderRadius: '6px',
@@ -511,8 +539,8 @@ const styles = {
     width: '320px',
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: '#111726',
-    borderLeft: '1px solid #232d42',
+    backgroundColor: 'var(--bg-card)',
+    borderLeft: '1px solid var(--border-color)',
     overflowY: 'auto',
   },
   memoryHeader: {
@@ -520,15 +548,15 @@ const styles = {
     alignItems: 'center',
     gap: '10px',
     padding: '20px 24px',
-    borderBottom: '1px solid #232d42',
-    backgroundColor: '#141c2f',
+    borderBottom: '1px solid var(--border-color)',
+    backgroundColor: 'var(--bg-card)',
   },
   panelTitle: {
     fontSize: '1rem',
     fontWeight: '700',
-    color: '#fff',
+    color: 'var(--text-main)',
     margin: 0,
-    fontFamily: "'Space Grotesk', sans-serif",
+    fontFamily: "var(--font-display)",
   },
   memoryContent: {
     padding: '16px',
@@ -543,7 +571,7 @@ const styles = {
     justifyContent: 'center',
     height: '100%',
     textAlign: 'center',
-    color: '#4b5563',
+    color: 'var(--text-muted)',
     fontSize: '0.8rem',
     padding: '16px',
   },
@@ -553,8 +581,8 @@ const styles = {
     gap: '12px',
   },
   memoryCard: {
-    backgroundColor: 'rgba(10, 13, 20, 0.4)',
-    border: '1px solid #232d42',
+    backgroundColor: 'var(--bg-dark)',
+    border: '1px solid var(--border-color)',
     borderRadius: '8px',
     padding: '12px',
     display: 'flex',
@@ -570,26 +598,26 @@ const styles = {
   memoryNode: {
     fontSize: '0.7rem',
     fontWeight: '600',
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-    color: '#a5b4fc',
+    backgroundColor: 'var(--primary-glow)',
+    color: 'var(--primary)',
     padding: '2px 6px',
     borderRadius: '4px',
-    border: '1px solid rgba(99, 102, 241, 0.2)',
+    border: '1px solid var(--border-color)',
   },
   memoryRelation: {
     fontSize: '0.8rem',
-    color: '#9ca3af',
+    color: 'var(--text-muted)',
   },
   memoryFact: {
     fontSize: '0.8rem',
     lineHeight: '1.4',
-    color: '#d1d5db',
+    color: 'var(--text-main)',
   },
   memoryPattern: {
     fontSize: '0.7rem',
-    color: '#34d399',
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    border: '1px solid rgba(16, 185, 129, 0.15)',
+    color: 'var(--emerald)',
+    backgroundColor: 'var(--emerald-glow)',
+    border: '1px solid var(--border-color)',
     padding: '3px 6px',
     borderRadius: '4px',
     marginTop: '2px',
@@ -598,8 +626,8 @@ const styles = {
     width: '380px',
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: '#141c2f',
-    borderLeft: '1px solid #232d42',
+    backgroundColor: 'var(--bg-card)',
+    borderLeft: '1px solid var(--border-color)',
     overflowY: 'auto',
   },
   feedbackHeader: {
@@ -607,8 +635,8 @@ const styles = {
     alignItems: 'center',
     gap: '10px',
     padding: '20px 24px',
-    borderBottom: '1px solid #232d42',
-    backgroundColor: '#1b253b',
+    borderBottom: '1px solid var(--border-color)',
+    backgroundColor: 'var(--bg-card)',
   },
   feedbackContent: {
     padding: '20px',
@@ -617,8 +645,8 @@ const styles = {
     gap: '20px',
   },
   sectionBlock: {
-    backgroundColor: 'rgba(10, 13, 20, 0.4)',
-    border: '1px solid #232d42',
+    backgroundColor: 'var(--bg-dark)',
+    border: '1px solid var(--border-color)',
     borderRadius: '8px',
     padding: '16px',
   },
@@ -628,14 +656,14 @@ const styles = {
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     marginBottom: '10px',
-    color: '#9ca3af',
-    fontFamily: "'Space Grotesk', sans-serif",
+    color: 'var(--text-muted)',
+    fontFamily: "var(--font-display)",
   },
   summaryText: {
     fontSize: '0.85rem',
     lineHeight: '1.6',
     margin: 0,
-    color: '#d1d5db',
+    color: 'var(--text-main)',
   },
   gridContainer: {
     display: 'flex',
@@ -653,7 +681,7 @@ const styles = {
   listItem: {
     fontSize: '0.8rem',
     lineHeight: '1.4',
-    color: '#d1d5db',
+    color: 'var(--text-main)',
     display: 'flex',
     alignItems: 'flex-start',
   },
