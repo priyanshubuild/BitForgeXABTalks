@@ -1,0 +1,71 @@
+from fastapi import FastAPI, HTTPException, Body
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional, List, Dict, Any
+
+from backend.interview_engine import start_session, process_turn
+
+app = FastAPI(
+    title="AI Interview Agent API",
+    description="Backend service for AI Interview Agent hackathon",
+    version="1.0.0"
+)
+
+# Enable CORS for local testing and frontend interaction
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Data Models based on technical-spec.md
+class FeedbackShape(BaseModel):
+    summary: str
+    strengths: List[str]
+    gaps: List[str]
+    next: List[str]
+
+class InterviewResponse(BaseModel):
+    reply: str
+    done: bool
+    feedback: Optional[FeedbackShape] = None
+
+# Health Check Routes
+@app.get("/health")
+@app.get("/api/health")
+def health_check():
+    return {
+        "status": "ok",
+        "service": "AI Interview Agent Backend",
+        "version": "1.0.0"
+    }
+
+# Single Endpoint POST /api/interview
+@app.post("/api/interview", response_model=InterviewResponse)
+def interview_endpoint(payload: Dict[str, Any] = Body(...)):
+    """
+    Single endpoint for initializing and conducting interview turns per technical-spec.md.
+    """
+    session_id = payload.get("sessionId")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Missing required field 'sessionId'.")
+
+    # Case 1: Start Interview (Payload contains 'candidate' object)
+    if "candidate" in payload:
+        candidate_data = payload["candidate"]
+        result = start_session(session_id, candidate_data)
+        return result
+
+    # Case 2: Conversation Turn (Payload contains 'message' string)
+    elif "message" in payload:
+        message_text = payload["message"]
+        result = process_turn(session_id, message_text)
+        return result
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid request format. Payload must contain either 'candidate' (to start) or 'message' (for turn)."
+        )
