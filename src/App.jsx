@@ -251,27 +251,27 @@ export default function App() {
           width: '300px',
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: '#111726',
-          borderLeft: '1px solid #232d42',
+          backgroundColor: 'var(--bg-card)',
+          borderLeft: '1px solid var(--border-color)',
           overflowY: 'auto',
-          color: '#f3f4f6',
-          fontFamily: "'Plus Jakarta Sans', sans-serif"
+          color: 'var(--text-main)',
+          fontFamily: "var(--font-family)"
         }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
             padding: '20px 24px',
-            borderBottom: '1px solid #232d42',
-            backgroundColor: '#141c2f'
+            borderBottom: '1px solid var(--border-color)',
+            backgroundColor: 'var(--bg-card)'
           }}>
             <span style={{ fontSize: '1.25rem' }}>🧠</span>
             <h2 style={{
               fontSize: '1rem',
               fontWeight: '700',
-              color: '#fff',
+              color: 'var(--text-main)',
               margin: 0,
-              fontFamily: "'Space Grotesk', sans-serif"
+              fontFamily: "var(--font-display)"
             }}>Things Learned</h2>
           </div>
           <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: '1', minHeight: 0 }}>
@@ -282,7 +282,7 @@ export default function App() {
                 justifyContent: 'center',
                 height: '100%',
                 textAlign: 'center',
-                color: '#4b5563',
+                color: 'var(--text-dim)',
                 fontSize: '0.8rem',
                 padding: '16px'
               }}>
@@ -292,8 +292,8 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {memories.map((m, idx) => (
                   <div key={idx} style={{
-                    backgroundColor: 'rgba(10, 13, 20, 0.4)',
-                    border: '1px solid #232d42',
+                    backgroundColor: 'var(--bg-dark)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     padding: '12px',
                     display: 'flex',
@@ -304,30 +304,30 @@ export default function App() {
                       <span style={{
                         fontSize: '0.7rem',
                         fontWeight: '600',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                        color: '#a5b4fc',
+                        backgroundColor: 'var(--primary-glow)',
+                        color: 'var(--primary)',
                         padding: '2px 6px',
                         borderRadius: '4px',
-                        border: '1px solid rgba(99, 102, 241, 0.2)'
+                        border: '1px solid var(--border-color)'
                       }}>{m.source_node}</span>
-                      <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>➔</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>➔</span>
                       <span style={{
                         fontSize: '0.7rem',
                         fontWeight: '600',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                        color: '#a5b4fc',
+                        backgroundColor: 'var(--primary-glow)',
+                        color: 'var(--primary)',
                         padding: '2px 6px',
                         borderRadius: '4px',
-                        border: '1px solid rgba(99, 102, 241, 0.2)'
+                        border: '1px solid var(--border-color)'
                       }}>{m.target_node}</span>
                     </div>
-                    <div style={{ fontSize: '0.8rem', lineHeight: '1.4', color: '#d1d5db' }}>{m.fact}</div>
+                    <div style={{ fontSize: '0.8rem', lineHeight: '1.4', color: 'var(--text-main)' }}>{m.fact}</div>
                     {m.cognitive_pattern && (
                       <div style={{
                         fontSize: '0.7rem',
-                        color: '#34d399',
-                        backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                        border: '1px solid rgba(16, 185, 129, 0.15)',
+                        color: 'var(--emerald)',
+                        backgroundColor: 'var(--emerald-glow)',
+                        border: '1px solid var(--border-color)',
                         padding: '3px 6px',
                         borderRadius: '4px',
                         marginTop: '2px'

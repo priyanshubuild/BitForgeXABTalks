@@ -236,9 +236,9 @@ export default function ChatStream({
           type="submit"
           disabled={isComplete || isLoading || !input.trim()}
           style={{
-            background: isComplete || !input.trim() ? 'var(--bg-dark)' : 'var(--primary)',
+            background: isComplete || !input.trim() ? 'var(--bg-card)' : 'var(--primary)',
             border: '1px solid var(--border-color)',
-            color: '#fff',
+            color: isComplete || !input.trim() ? 'var(--text-muted)' : '#ffffff',
             padding: '0 20px',
             borderRadius: '10px',
             cursor: isComplete || !input.trim() ? 'not-allowed' : 'pointer',
