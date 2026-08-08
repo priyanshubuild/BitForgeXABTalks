@@ -1,205 +1,531 @@
-import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import CandidateSidebar from './components/CandidateSidebar';
-import ChatStream from './components/ChatStream';
-import FeedbackModal from './components/FeedbackModal';
-import { CANDIDATES_SAMPLE } from './data/mockData';
+import React, { useState, useEffect, useRef } from 'react';
+import candidatesData from '../../candidates.json';
+
+const BACKEND_URL = 'http://localhost:8001';
 
 export default function App() {
-  const [candidates] = useState(CANDIDATES_SAMPLE);
-  const [selectedCandidateId, setSelectedCandidateId] = useState(CANDIDATES_SAMPLE[0].member.id);
-  const [sessionId, setSessionId] = useState(`sess-${Date.now()}`);
-  
-  const [backendUrl] = useState('http://localhost:8001');
-  const [isBackendOnline, setIsBackendOnline] = useState(false);
-  
+  const [candidates] = useState(candidatesData.candidates || []);
+  const [selectedId, setSelectedId] = useState(candidates[0]?.member?.id || '');
+  const [sessionId, setSessionId] = useState('');
   const [messages, setMessages] = useState([]);
-  const [targetDays, setTargetDays] = useState([]);
-  const [questionsAsked, setQuestionsAsked] = useState(0);
-  const [daysCovered, setDaysCovered] = useState(new Set());
-  
+  const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
+  const [isDone, setIsDone] = useState(false);
   const [feedback, setFeedback] = useState(null);
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('Select a candidate and click "Start Interview"');
 
-  const activeCandidate = candidates.find(c => c.member.id === selectedCandidateId) || candidates[0];
+  const messagesEndRef = useRef(null);
 
+  // Auto-scroll chat to bottom when messages update
   useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const res = await fetch(`${backendUrl}/health`);
-        setIsBackendOnline(res.ok);
-      } catch (e) {
-        setIsBackendOnline(false);
-      }
-    };
-    checkHealth();
-    const interval = setInterval(checkHealth, 6000);
-    return () => clearInterval(interval);
-  }, [backendUrl]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
-  const initSession = async (candidateObj, newSessionId) => {
+  const activeCandidate = candidates.find(c => c.member.id === selectedId) || candidates[0];
+
+  const handleStartInterview = async () => {
+    if (!activeCandidate) return;
+
     setIsLoading(true);
-    setIsComplete(false);
+    setIsDone(false);
     setFeedback(null);
-    setQuestionsAsked(1);
+    setMessages([]);
+    setInputText('');
     
-    const missions = candidateObj.missions || [];
-    const passed = missions.filter(m => m.passed).slice(0, 4);
-    const skipped = missions.filter(m => m.skipped || !m.passed).slice(0, 1);
-    const combinedTargets = [...passed, ...skipped];
-    
-    const formattedTargets = combinedTargets.map(m => ({
-      day: m.day,
-      title: m.title,
-      passed: !!m.passed,
-      skipped: !!m.skipped,
-      attempts: m.attempts || 1
-    }));
-    setTargetDays(formattedTargets);
-    setDaysCovered(new Set([formattedTargets[0]?.day || 7]));
+    const newSessionId = `sess-${Date.now()}`;
+    setSessionId(newSessionId);
+    setStatusMessage(`Initializing session for ${activeCandidate.member.name}...`);
 
-    if (isBackendOnline) {
-      try {
-        const res = await fetch(`${backendUrl}/api/interview`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: newSessionId, candidate: candidateObj })
-        });
-        const data = await res.json();
-        setMessages([{ role: 'assistant', content: data.reply }]);
-        setIsLoading(false);
-        return;
-      } catch (e) {}
-    }
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/interview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: newSessionId,
+          candidate: activeCandidate
+        })
+      });
 
-    setTimeout(() => {
-      const firstQ = `Welcome ${candidateObj.member.name}! Let's start your evaluation. On Day ${formattedTargets[0]?.day || 7} (${formattedTargets[0]?.title || 'Embeddings'}): Can you walk me through your text chunking strategy and similarity metrics?`;
-      setMessages([{ role: 'assistant', content: firstQ }]);
+      if (!res.ok) {
+        throw new Error(`Server returned status: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setMessages([{ role: 'assistant', content: data.reply }]);
+      setIsDone(data.done || false);
+      setFeedback(data.feedback || null);
+      setStatusMessage(`Interview active: Session ID ${newSessionId}`);
+    } catch (error) {
+      console.error('Error starting interview:', error);
+      setStatusMessage(`Error: ${error.message}. Is backend server running on ${BACKEND_URL}?`);
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
-  useEffect(() => {
-    if (activeCandidate) initSession(activeCandidate, sessionId);
-  }, [selectedCandidateId]);
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    const text = inputText.trim();
+    if (!text || isLoading || isDone) return;
 
-  const handleResetSession = () => {
-    const freshId = `sess-${Date.now()}`;
-    setSessionId(freshId);
-    initSession(activeCandidate, freshId);
-  };
-
-  const handleSendMessage = async (text) => {
-    const updatedMessages = [...messages, { role: 'user', content: text }];
-    setMessages(updatedMessages);
+    // Append user message immediately
+    const userMessage = { role: 'user', content: text };
+    setMessages(prev => [...prev, userMessage]);
+    setInputText('');
     setIsLoading(true);
 
-    if (isBackendOnline) {
-      try {
-        const res = await fetch(`${backendUrl}/api/interview`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: sessionId, message: text })
-        });
-        const data = await res.json();
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/interview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: sessionId,
+          message: text
+        })
+      });
 
-        setMessages([...updatedMessages, { role: 'assistant', content: data.reply }]);
-        setQuestionsAsked(prev => prev + 1);
-
-        if (data.done) {
-          setIsComplete(true);
-          setFeedback(data.feedback);
-          setShowFeedbackModal(true);
-        }
-        setIsLoading(false);
-        return;
-      } catch (e) {}
-    }
-
-    setTimeout(() => {
-      const nextTurnNum = questionsAsked + 1;
-      setQuestionsAsked(nextTurnNum);
-
-      const targetIndex = (nextTurnNum - 1) % targetDays.length;
-      const currentTarget = targetDays[targetIndex] || targetDays[0];
-      setDaysCovered(prev => new Set([...prev, currentTarget.day]));
-
-      if (nextTurnNum >= 8 && daysCovered.size >= 3) {
-        const finalReply = "Thank you for answering all my technical questions today! That completes our evaluation.";
-        const mockFeedback = {
-          summary: `${activeCandidate.member.name} demonstrated solid competency across vector embeddings, retrieval engines, prompt engineering, and multi-agent workflows.`,
-          strengths: [
-            "Clear understanding of text chunking and vector database indexing",
-            "Practical experience with FastAPI backend session management",
-            "Solid grasp of multi-agent routing architectures"
-          ],
-          gaps: [
-            "Could elaborate further on container observability probes (Day 29)",
-            "Could provide more details on token cost optimization metrics"
-          ],
-          next: [
-            "Implement OpenTelemetry tracing across FastAPI endpoints",
-            "Explore hybrid BM25 + vector re-ranking for RAG optimization"
-          ]
-        };
-
-        setMessages([...updatedMessages, { role: 'assistant', content: finalReply }]);
-        setIsComplete(true);
-        setFeedback(mockFeedback);
-        setShowFeedbackModal(true);
-      } else {
-        const followUps = [
-          `Great explanation. Moving to Day ${currentTarget.day} (${currentTarget.title}): How did you handle query latency and metadata filtering in production?`,
-          `That makes sense. Focusing on Day ${currentTarget.day} (${currentTarget.title}): What fallback mechanisms did you put in place for API timeouts?`
-        ];
-        const chosenReply = followUps[(nextTurnNum - 1) % followUps.length];
-        setMessages([...updatedMessages, { role: 'assistant', content: chosenReply }]);
+      if (!res.ok) {
+        throw new Error(`Server returned status: ${res.status}`);
       }
+
+      const data = await res.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      setIsDone(data.done || false);
+      if (data.done) {
+        setFeedback(data.feedback || null);
+        setStatusMessage('Interview completed. Structured feedback generated.');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `⚠️ Failed to send response: ${error.message}. Please try again.` 
+      }]);
+    } finally {
       setIsLoading(false);
-    }, 600);
+    }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: 'var(--bg-dark)' }}>
-      <Header 
-        candidates={candidates}
-        selectedCandidateId={selectedCandidateId}
-        onSelectCandidate={(id) => {
-          setSelectedCandidateId(id);
-          setSessionId(`sess-${Date.now()}`);
-        }}
-        onResetSession={handleResetSession}
-        isBackendOnline={isBackendOnline}
-      />
+    <div style={styles.container}>
+      {/* Header bar */}
+      <header style={styles.header}>
+        <div style={styles.titleContainer}>
+          <span style={styles.emoji}>🤖</span>
+          <h1 style={styles.title}>AI Interview Simulator</h1>
+          <span style={styles.badge}>Local Test Client</span>
+        </div>
+        <div style={styles.status}>{statusMessage}</div>
+      </header>
 
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <CandidateSidebar 
-          candidate={activeCandidate}
-          targetDays={targetDays}
-          questionsAsked={questionsAsked}
-          daysCovered={daysCovered}
-        />
-
-        <ChatStream 
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          isLoading={isLoading}
-          candidate={activeCandidate}
-          isComplete={isComplete}
-          onShowFeedback={() => setShowFeedbackModal(true)}
-        />
+      {/* Control Panel */}
+      <div style={styles.controlPanel}>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Select Candidate Profile:</label>
+          <select 
+            style={styles.select} 
+            value={selectedId} 
+            onChange={(e) => setSelectedId(e.target.value)}
+            disabled={isLoading || (sessionId && !isDone)}
+          >
+            {candidates.map(c => (
+              <option key={c.member.id} value={c.member.id}>
+                {c.member.name} — {c.member.jobRole} ({c.member.yearsExperience} yrs exp)
+              </option>
+            ))}
+          </select>
+        </div>
+        <button 
+          style={styles.btnStart} 
+          onClick={handleStartInterview}
+          disabled={isLoading}
+        >
+          {sessionId && !isDone ? 'Restart Interview' : 'Start Interview'}
+        </button>
       </div>
 
-      {showFeedbackModal && (
-        <FeedbackModal 
-          feedback={feedback}
-          candidate={activeCandidate}
-          onRestart={handleResetSession}
-          onClose={() => setShowFeedbackModal(false)}
-        />
-      )}
+      {/* Main Workspace Layout */}
+      <div style={styles.workspace}>
+        {/* Chat Feed */}
+        <div style={styles.chatSection}>
+          <div style={styles.chatFeed}>
+            {messages.length === 0 ? (
+              <div style={styles.emptyState}>
+                <p>No active interview. Choose a candidate profile above and click "Start Interview" to begin your technical evaluation dialogue.</p>
+              </div>
+            ) : (
+              messages.map((m, idx) => (
+                <div 
+                  key={idx} 
+                  style={{
+                    ...styles.messageRow,
+                    justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start'
+                  }}
+                >
+                  <div 
+                    style={{
+                      ...styles.bubble,
+                      ...(m.role === 'user' ? styles.bubbleUser : styles.bubbleAI)
+                    }}
+                  >
+                    <div style={styles.bubbleHeader}>
+                      {m.role === 'user' ? 'Candidate' : 'Interviewer'}
+                    </div>
+                    <div>{m.content}</div>
+                  </div>
+                </div>
+              ))
+            )}
+            
+            {isLoading && (
+              <div style={{ ...styles.messageRow, justifyContent: 'flex-start' }}>
+                <div style={{ ...styles.bubble, ...styles.bubbleAI, opacity: 0.8 }}>
+                  <div style={styles.typingIndicator}>
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Panel */}
+          <form style={styles.inputArea} onSubmit={handleSendMessage}>
+            <input 
+              style={styles.input} 
+              type="text" 
+              placeholder={
+                isDone 
+                  ? "Interview finished. Check the evaluation feedback below." 
+                  : !sessionId 
+                    ? "Start the interview to unlock responses..." 
+                    : "Type your technical answer here..."
+              }
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              disabled={isLoading || isDone || !sessionId}
+            />
+            <button 
+              type="submit" 
+              style={{
+                ...styles.btnSend,
+                opacity: isLoading || isDone || !sessionId || !inputText.trim() ? 0.6 : 1
+              }}
+              disabled={isLoading || isDone || !sessionId || !inputText.trim()}
+            >
+              Send
+            </button>
+          </form>
+        </div>
+
+        {/* Feedback Panel */}
+        {isDone && feedback && (
+          <div style={styles.feedbackSection}>
+            <div style={styles.feedbackHeader}>
+              <span style={{ fontSize: '1.25rem' }}>🏆</span>
+              <h2>Interview Evaluation Report</h2>
+            </div>
+            
+            <div style={styles.feedbackContent}>
+              <div style={styles.sectionBlock}>
+                <h3 style={styles.sectionTitle}>Summary</h3>
+                <p style={styles.summaryText}>{feedback.summary}</p>
+              </div>
+
+              <div style={styles.gridContainer}>
+                <div style={styles.sectionBlock}>
+                  <h3 style={{ ...styles.sectionTitle, color: '#34d399' }}>Strengths</h3>
+                  <ul style={styles.list}>
+                    {feedback.strengths?.map((item, i) => (
+                      <li key={i} style={styles.listItem}>
+                        <span style={{ color: '#10b981', marginRight: '8px' }}>✓</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div style={styles.sectionBlock}>
+                  <h3 style={{ ...styles.sectionTitle, color: '#f87171' }}>Gaps & Weaknesses</h3>
+                  <ul style={styles.list}>
+                    {feedback.gaps?.map((item, i) => (
+                      <li key={i} style={styles.listItem}>
+                        <span style={{ color: '#ef4444', marginRight: '8px' }}>⚠</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div style={styles.sectionBlock}>
+                <h3 style={{ ...styles.sectionTitle, color: '#60a5fa' }}>Next Steps & Recommendations</h3>
+                <ul style={styles.list}>
+                  {feedback.next?.map((item, i) => (
+                    <li key={i} style={styles.listItem}>
+                      <span style={{ color: '#3b82f6', marginRight: '8px' }}>→</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+// In-line styles for self-containment & clean styling
+const styles = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100vh',
+    maxHeight: '100vh',
+    width: '100vw',
+    backgroundColor: '#0a0d14',
+    color: '#f3f4f6',
+    fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+    overflow: 'hidden',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px 24px',
+    backgroundColor: 'rgba(17, 23, 38, 0.8)',
+    borderBottom: '1px solid #232d42',
+    backdropFilter: 'blur(10px)',
+  },
+  titleContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  emoji: {
+    fontSize: '1.6rem',
+  },
+  title: {
+    fontSize: '1.25rem',
+    fontWeight: '700',
+    color: '#fff',
+    margin: 0,
+    fontFamily: "'Space Grotesk', sans-serif",
+  },
+  badge: {
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    color: '#a5b4fc',
+    border: '1px solid rgba(99, 102, 241, 0.3)',
+    borderRadius: '12px',
+    padding: '2px 8px',
+    fontSize: '0.7rem',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  status: {
+    fontSize: '0.85rem',
+    color: '#9ca3af',
+  },
+  controlPanel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '20px',
+    padding: '16px 24px',
+    backgroundColor: 'rgba(20, 27, 45, 0.4)',
+    borderBottom: '1px solid #232d42',
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    flex: '1',
+    maxWidth: '400px',
+  },
+  label: {
+    fontSize: '0.75rem',
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  select: {
+    backgroundColor: '#111726',
+    border: '1px solid #232d42',
+    color: '#f3f4f6',
+    borderRadius: '6px',
+    padding: '8px 12px',
+    fontSize: '0.9rem',
+    outline: 'none',
+    cursor: 'pointer',
+    width: '100%',
+  },
+  btnStart: {
+    backgroundColor: '#6366f1',
+    border: 'none',
+    color: '#fff',
+    borderRadius: '6px',
+    padding: '10px 20px',
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
+    alignSelf: 'flex-end',
+  },
+  workspace: {
+    display: 'flex',
+    flex: '1',
+    minHeight: 0,
+    overflow: 'hidden',
+  },
+  chatSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: '1',
+    borderRight: '1px solid #232d42',
+    backgroundColor: '#0a0d14',
+    overflow: 'hidden',
+  },
+  chatFeed: {
+    flex: '1',
+    padding: '24px',
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  emptyState: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    textAlign: 'center',
+    color: '#6b7280',
+    padding: '40px',
+  },
+  messageRow: {
+    display: 'flex',
+    width: '100%',
+  },
+  bubble: {
+    padding: '12px 16px',
+    borderRadius: '12px',
+    maxWidth: '70%',
+    lineHeight: '1.5',
+    fontSize: '0.95rem',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+  },
+  bubbleAI: {
+    backgroundColor: '#1f2937',
+    color: '#f3f4f6',
+    borderBottomLeftRadius: '2px',
+    border: '1px solid #2d3748',
+  },
+  bubbleUser: {
+    backgroundColor: '#4f46e5',
+    color: '#ffffff',
+    borderBottomRightRadius: '2px',
+  },
+  bubbleHeader: {
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    marginBottom: '4px',
+    opacity: 0.8,
+  },
+  inputArea: {
+    display: 'flex',
+    padding: '16px 24px',
+    borderTop: '1px solid #232d42',
+    backgroundColor: '#111726',
+    gap: '12px',
+  },
+  input: {
+    flex: '1',
+    backgroundColor: '#0a0d14',
+    border: '1px solid #232d42',
+    color: '#f3f4f6',
+    borderRadius: '6px',
+    padding: '12px 16px',
+    fontSize: '0.95rem',
+    outline: 'none',
+  },
+  btnSend: {
+    backgroundColor: '#4f46e5',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '0 24px',
+    fontSize: '0.95rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  feedbackSection: {
+    width: '450px',
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: '#111726',
+    overflowY: 'auto',
+  },
+  feedbackHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '20px 24px',
+    borderBottom: '1px solid #232d42',
+    backgroundColor: '#141c2f',
+  },
+  feedbackContent: {
+    padding: '24px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px',
+  },
+  sectionBlock: {
+    backgroundColor: 'rgba(10, 13, 20, 0.4)',
+    border: '1px solid #232d42',
+    borderRadius: '8px',
+    padding: '16px',
+  },
+  sectionTitle: {
+    fontSize: '0.9rem',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    marginBottom: '10px',
+    color: '#9ca3af',
+    fontFamily: "'Space Grotesk', sans-serif",
+  },
+  summaryText: {
+    fontSize: '0.9rem',
+    lineHeight: '1.6',
+    margin: 0,
+    color: '#d1d5db',
+  },
+  gridContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  list: {
+    listStyle: 'none',
+    padding: 0,
+    margin: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  listItem: {
+    fontSize: '0.85rem',
+    lineHeight: '1.4',
+    color: '#d1d5db',
+    display: 'flex',
+    alignItems: 'flex-start',
+  },
+  typingIndicator: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '4px 0',
+    width: '32px',
+    height: '12px',
+  },
+};
