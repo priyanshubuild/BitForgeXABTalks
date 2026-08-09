@@ -14,16 +14,22 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for local testing and frontend interaction
+# Enable CORS for local testing, production, and frontend interaction
+_default_origins = (
+    "http://localhost:3000,http://127.0.0.1:3000,"
+    "http://localhost:3001,http://127.0.0.1:3001,"
+    "https://vicodathon.priyanshugupta.com,"
+    "https://*.vercel.app"
+)
 allowed_origins = [
     origin.strip()
-    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001").split(",")
+    for origin in os.getenv("CORS_ORIGINS", _default_origins).split(",")
     if origin.strip()
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],  # Allow all origins for hackathon deployment
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,11 +62,15 @@ class InterviewResponse(BaseModel):
 @app.get("/api/health")
 def health_check():
     active = list_sessions()
+    gemini_configured = bool(os.getenv("GEMINI_API_KEY"))
+    breeth_configured = bool(os.getenv("BREETH_API_KEY"))
     return {
         "status": "ok",
         "service": "AI Interview Agent Backend",
         "version": "1.0.0",
         "active_sessions": len(active),
+        "ai_enabled": gemini_configured,
+        "memory_enabled": breeth_configured,
     }
 
 @app.get("/api/sessions")

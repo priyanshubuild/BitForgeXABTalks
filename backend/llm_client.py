@@ -2,9 +2,18 @@ import os
 import json
 import re
 from typing import List, Dict, Any, Optional, Tuple
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-load_dotenv()
+# Load .env from project root (handles Vercel's differing CWD)
+_dotenv_path = find_dotenv(usecwd=True) or find_dotenv(
+    filename=".env",
+    raise_error_if_not_found=False,
+)
+if _dotenv_path:
+    load_dotenv(_dotenv_path, override=False)
+else:
+    # On Vercel, env vars come from the dashboard — no .env file needed
+    load_dotenv(override=False)
 
 # -- Model Config -------------------------------------------------------------
 GEMINI_MODEL    = os.getenv("GEMINI_MODEL",  "gemini-2.0-flash")
@@ -13,14 +22,18 @@ GEMINI_MODEL    = os.getenv("GEMINI_MODEL",  "gemini-2.0-flash")
 def get_gemini_client():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
+        print("[LLM] WARNING: GEMINI_API_KEY is not set. AI features will be disabled (simulation mode).")
+        print("[LLM] Set GEMINI_API_KEY in your Vercel dashboard or .env file.")
         return None
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
+        print(f"[LLM] Gemini client initialized with model: {GEMINI_MODEL}")
         return genai
     except Exception as e:
-        print(f"Warning: Could not initialize Gemini client: {e}")
+        print(f"[LLM] WARNING: Could not initialize Gemini client: {e}")
         return None
+
 
 def _call_gemini(genai, model_name: str, system_prompt: str, messages: List[Dict], max_tokens: int, temperature: float):
     """Helper: run one Gemini model call. Returns raw text or raises."""

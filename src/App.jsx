@@ -25,6 +25,7 @@ export default function App() {
   const [sessionId, setSessionId] = useState(createSessionId);
   const [backendUrl] = useState(BACKEND_URL);
   const [isBackendOnline, setIsBackendOnline] = useState(false);
+  const [isAiEnabled, setIsAiEnabled] = useState(false);
   const [messages, setMessages] = useState([]);
   const [targetDays, setTargetDays] = useState([]);
   const [questionsAsked, setQuestionsAsked] = useState(0);
@@ -50,14 +51,25 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Health-check
+  // Health-check — also parse whether AI (Gemini) is configured
   useEffect(() => {
     const check = async () => {
-      try { const r = await fetch(`${backendUrl}/api/health`); setIsBackendOnline(r.ok); }
-      catch { setIsBackendOnline(false); }
+      try {
+        const r = await fetch(`${backendUrl}/api/health`);
+        setIsBackendOnline(r.ok);
+        if (r.ok) {
+          const data = await r.json();
+          setIsAiEnabled(!!data.ai_enabled);
+        } else {
+          setIsAiEnabled(false);
+        }
+      } catch {
+        setIsBackendOnline(false);
+        setIsAiEnabled(false);
+      }
     };
     check();
-    const iv = setInterval(check, 6000);
+    const iv = setInterval(check, 15000);
     return () => clearInterval(iv);
   }, [backendUrl]);
 
@@ -328,6 +340,7 @@ export default function App() {
         onBack={() => setPage('select')}
         onResetSession={handleResetSession}
         isBackendOnline={isBackendOnline}
+        isAiEnabled={isAiEnabled}
         sessionId={sessionId}
         theme={theme}
         setTheme={setTheme}

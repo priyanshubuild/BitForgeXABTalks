@@ -76,17 +76,22 @@ Open `http://localhost:3000`
 
 ### Deploying live AI evaluation on Vercel
 
-This repository includes `api/index.py`, which exposes the FastAPI `app` as a
-Vercel Python Function. When the repository is deployed to Vercel, the React
-app calls the same domain at `/api/interview` and `/api/health`; it does not
-use `localhost` in production.
+This repository includes `api/index.py` and `vercel.json`, which together
+expose the FastAPI `app` as a Vercel Python Serverless Function. The
+`vercel.json` file **must be committed to git** — it defines the rewrite rules
+that route `/api/*` requests to the Python function. Without it, the backend
+returns 404 and the frontend falls back to offline simulation mode.
+
+When deployed, the React frontend calls the same origin at `/api/interview`
+and `/api/health`; no `localhost` or separate backend URL is needed.
+
+**Required: Vercel Environment Variables**
 
 In Vercel Project Settings → Environment Variables, add:
 
 ```env
 GEMINI_API_KEY=your_key
 BREETH_API_KEY=your_optional_key
-CORS_ORIGINS=https://vicodathon.priyanshugupta.com
 ```
 
 Redeploy after adding the values. Verify live AI API availability at:
@@ -95,10 +100,15 @@ Redeploy after adding the values. Verify live AI API availability at:
 https://vicodathon.priyanshugupta.com/api/health
 ```
 
-For a separately hosted backend instead, configure the frontend build
-environment with its public FastAPI base URL:
+The response should include `"ai_enabled": true` and `"status": "ok"`.
+The frontend header shows **Live AI** (green dot) when the backend is
+reachable and Gemini is configured, **Backend Only** (amber) when the
+backend works but Gemini is missing, or **Simulation** (grey) when the
+backend is unreachable.
 
-Configure the frontend build environment with the public FastAPI base URL:
+**Alternative: Separately hosted backend**
+
+For a separately hosted backend, set the frontend build-time variable:
 
 ```env
 VITE_BACKEND_URL=https://api.your-domain.com
@@ -190,6 +200,8 @@ UI fallback follows the same retry behavior.
 
 ```
 bitforge/
+├── api/
+│   └── index.py             # Vercel Python Function entrypoint
 ├── backend/
 │   ├── main.py              # FastAPI server, CORS, routes
 │   ├── interview_engine.py  # Core interview logic & state machine
@@ -209,6 +221,7 @@ bitforge/
 │       ├── CandidateSidebar.jsx # SVG progress rings, live scores
 │       ├── ChatStream.jsx       # Markdown chat with topic hints
 │       └── FeedbackModal.jsx    # Evaluation report modal
+├── vercel.json              # Vercel deployment config (API routing)
 ├── curriculum.json          # 31-day AI Cohort curriculum
 ├── PROMPTS.md              # AI usage & development log
 └── README.md               # This file

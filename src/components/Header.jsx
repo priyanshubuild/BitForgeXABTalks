@@ -2,11 +2,22 @@ import React from 'react';
 import { BrainCircuit, RefreshCw, Sun, Moon, ArrowLeft } from 'lucide-react';
 
 export default function Header({
-  candidate, onBack, onResetSession, isBackendOnline,
+  candidate, onBack, onResetSession, isBackendOnline, isAiEnabled,
   sessionId, theme, setTheme
 }) {
   const name = candidate?.member?.name || 'Candidate';
   const role = candidate?.member?.jobRole || '';
+
+  // Three states: Live AI, Backend Only (no key), Simulation (no backend)
+  const statusLabel = isBackendOnline
+    ? (isAiEnabled ? 'Live AI' : 'Backend Only')
+    : 'Simulation';
+  const statusClass = isBackendOnline
+    ? (isAiEnabled ? 'online' : 'warning')
+    : 'offline';
+  const statusColor = isBackendOnline
+    ? (isAiEnabled ? 'var(--green)' : 'var(--amber, #f59e0b)')
+    : 'var(--text-3)';
 
   return (
     <header className="app-header">
@@ -23,16 +34,16 @@ export default function Header({
           <div className="app-header-title">AI Interview Agent</div>
           <p className="app-header-sub">
             Evaluating <strong>{name}</strong>
-            {role && <> · {role}</>}
+            {role && <>· {role}</>}
           </p>
         </div>
       </div>
 
       <div className="app-header-right">
         <div className="status-pill">
-          <span className={`status-dot ${isBackendOnline ? 'online' : 'offline'}`} />
-          <span style={{ color: isBackendOnline ? 'var(--green)' : 'var(--text-3)' }}>
-            {isBackendOnline ? 'Live' : 'Simulation'}
+          <span className={`status-dot ${statusClass}`} />
+          <span style={{ color: statusColor }}>
+            {statusLabel}
           </span>
         </div>
 

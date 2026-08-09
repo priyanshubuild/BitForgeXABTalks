@@ -445,16 +445,51 @@
 
 ---
 
+### Phase 20: Vercel Deployment Fix — Simulation Mode Bug
+
+**Prompt:**
+> the site in deployed run in simulation mode fix this issue and then update readme.md and prompts.md and push code to github
+
+**Root Cause Identified:**
+- `vercel.json` was created locally but **never committed to git** (`git status` showed `?? vercel.json` — untracked file)
+- Without `vercel.json`, Vercel had no rewrite rules mapping `/api/*` to the Python serverless function in `api/index.py`
+- Every request to `/api/health` returned **404**, causing the frontend health-check to set `isBackendOnline = false`
+- The frontend therefore always fell back to the **client-side simulation engine** instead of calling the real Gemini-powered backend
+
+**Fix Applied:**
+- `git add vercel.json` — committed the deployment configuration to the repository
+- This single missing file was the entire cause of the simulation mode issue on the deployed site
+
+**Files Modified:**
+- `/vercel.json` — **Committed to git** (was previously untracked). Defines Vercel rewrite rules and Python runtime config
+- `/backend/main.py` — Added `ai_enabled` and `memory_enabled` fields to health check; widened CORS origins for hackathon deployment
+- `/backend/llm_client.py` — Improved `.env` discovery with `find_dotenv()` for Vercel's differing CWD; added diagnostic logging
+- `/src/App.jsx` — Added `isAiEnabled` state from health check; three-state backend status tracking (Live AI / Backend Only / Simulation)
+- `/src/components/Header.jsx` — Three-state status indicator: green "Live AI" / amber "Backend Only" / grey "Simulation"
+- `/src/index.css` — Added `.status-dot.warning` style with amber pulse animation
+- `/README.md` — Documented vercel.json requirement, three-state status indicator, cleaned up deployment instructions
+- `/PROMPTS.md` — Added this phase
+
+**Core Accomplishments:**
+- **Root Cause Fixed:** The deployed site no longer defaults to simulation mode — `vercel.json` routes `/api/*` to the Python function
+- **Three-State Status Indicator:** Header now shows: 🟢 **Live AI** (backend + Gemini configured), 🟡 **Backend Only** (backend online but no API key), ⚫ **Simulation** (backend unreachable)
+- **Improved Diagnostics:** Health endpoint now returns `ai_enabled` and `memory_enabled` flags so the frontend can distinguish configuration issues from network failures
+- **Robust .env Loading:** `llm_client.py` uses `find_dotenv()` to handle Vercel's non-standard working directory, with explicit fallback to dashboard env vars
+
+---
+
 ## 🚀 Live Deployment Checklist
 - [x] Public GitHub Repository: `https://github.com/priyanshubuild/BitForgeXABTalks`
 - [x] AI Usage Log: [`PROMPTS.md`](./PROMPTS.md) — This file (unified prompt & development log)
-- [x] Backend API: `POST /api/interview` & `GET /health` & `GET /api/sessions` (port 8001)
-- [x] React Single Page Application with client fallbacks ready for Vercel/Netlify deployment (port 3001)
+- [x] Vercel Deployment Config: `vercel.json` + `api/index.py` — Python serverless function routing
+- [x] Backend API: `POST /api/interview` & `GET /api/health` — same-origin on Vercel
+- [x] React Single Page Application with client fallbacks ready for Vercel deployment
 - [x] Free LLM: Google Gemini 2.0 Flash (no cost) → Gemini 1.5 Flash fallback → offline simulation with real evaluation
 - [x] Memory Layer: Breeth API (`POST /v1/episodes`, `POST /v1/search`) with async-aware search timing
-- [x] Session Persistence: SQLite (`backend/sessions.db`) — survives hot-reload and serverless cold starts
+- [x] Session Persistence: SQLite (temp dir on Vercel) — survives hot-reload and serverless warm starts
 - [x] Evaluation Pipeline: LLM topical judgment → topic state machine → explicit mismatch naming → answer quality tracking
 - [x] Answer Validation: Both LLM-powered and heuristic evaluation that can actually FAIL weak/off-topic/skipped answers
+- [x] Three-State Status: Live AI / Backend Only / Simulation — visible in the interview header
 
 ---
 
