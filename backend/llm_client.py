@@ -17,8 +17,8 @@ else:
     load_dotenv(override=False)
 
 # -- Model Config -------------------------------------------------------------
-GEMINI_MODEL    = os.getenv("GEMINI_MODEL",  "gemini-2.0-flash")
-
+GEMINI_MODEL    = os.getenv("GEMINI_MODEL",  "gemini-2.5-flash")
+GROQ_MODEL      = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 # -- Gemini Client ------------------------------------------------------------
 def get_gemini_client():
     api_key = os.getenv("GEMINI_API_KEY")
@@ -27,6 +27,32 @@ def get_gemini_client():
         return None
     print(f"[LLM] Gemini REST client ready with model: {GEMINI_MODEL}")
     return api_key
+def get_groq_client():
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return None
+    print(f"[LLM] Groq backup client ready with model: {GROQ_MODEL}")
+    return api_key
+
+
+def _call_groq(api_key: str, model_name: str, system_prompt: str, messages: List[Dict], max_tokens: int, temperature: float):
+    """Helper: run one Groq model call via its OpenAI-compatible REST API."""
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    chat_messages = [{"role": "system", "content": system_prompt}] + [
+        {"role": m["role"], "content": m["content"]} for m in messages
+    ]
+    payload = {
+        "model": model_name,
+        "messages": chat_messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    resp = requests.post(url, headers=headers, json=payload, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+    return data["choices"][0]["message"]["content"].strip()
+
 
 
 def _call_gemini(genai, model_name: str, system_prompt: str, messages: List[Dict], max_tokens: int, temperature: float):
@@ -56,7 +82,7 @@ def call_llm(system_prompt: str, messages: List[Dict[str, str]]) -> Dict[str, An
     import time
     genai = get_gemini_client()
     if genai:
-        for model_name in [GEMINI_MODEL, "gemini-1.5-flash"]:
+        for model_name in [GEMINI_MODEL, "gemini-2.5-flash-lite"]:
             for attempt in range(2):
                 try:
                     raw = _call_gemini(genai, model_name, system_prompt, messages, 1400, 0.75)
@@ -73,9 +99,20 @@ def call_llm(system_prompt: str, messages: List[Dict[str, str]]) -> Dict[str, An
                         time.sleep(2)
                         continue
                     break
+        groq_key = get_groq_client()
+    if groq_key:
+        try:
+            raw = _call_groq(groq_key, GROQ_MODEL, system_prompt, messages, 1400, 0.75)
+            parsed = parse_llm_json(raw)
+            if parsed is None:
+                return {"reply": raw, "is_complete": False, "day_covered": None, "feedback": None}
+            if isinstance(parsed, dict) and isinstance(parsed.get("reply"), str):
+                return parsed
+        except Exception as e:
+            print(f"Groq API Exception: {e}")
 
-    return simulate_llm_response(system_prompt, messages)
-
+    return simulate_llm_response(system_prompt, messages)  
+          
 # -- Evaluation-specific LLM Call (NO simulation fallback) --------------------
 def call_llm_for_evaluation(system_prompt: str, messages: List[Dict[str, str]]) -> Optional[Dict[str, Any]]:
     """
@@ -87,7 +124,7 @@ def call_llm_for_evaluation(system_prompt: str, messages: List[Dict[str, str]]) 
     """
     genai = get_gemini_client()
     if genai:
-        for model_name in [GEMINI_MODEL, "gemini-1.5-flash"]:
+        for model_name in [GEMINI_MODEL, "gemini-2.5-flash-lite"]:
             try:
                 raw = _call_gemini(genai, model_name, system_prompt, messages, 600, 0.3)
                 parsed = parse_llm_json(raw)
