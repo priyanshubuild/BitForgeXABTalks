@@ -1,6 +1,6 @@
 # AI Interview Agent 🤖⚡
 
-> **Intelligent Technical Candidate Evaluation Platform** — AI Cohort Hackathon, Problem Statement 1.  
+> **Intelligent Technical Candidate Evaluation Platform** — Vicodathon, Problem Statement 2.
 > Built by **Team BitForge** using Gemini 2.0 Flash, FastAPI, Breeth Memory, and React + Vite.
 
 ---
@@ -16,8 +16,8 @@ The AI Interview Agent conducts **personalized, multi-turn technical interviews*
 - **Real Answer Evaluation** — Both LLM-powered and heuristic pipelines that can actually **fail** weak, off-topic, or skipped answers
 - **Breeth Memory Graph** — Persistent memory layer tracks candidate facts across turns for deeper context augmentation
 - **Structured Feedback** — Generates detailed evaluation reports with summary, strengths, gaps, and actionable next steps
-- **Multi-LLM Fallback** — Gemini 2.0 Flash → Gemini 1.5 Flash → Anthropic Claude → offline simulation with real evaluation
-- **20 Candidate Profiles** — All hackathon-provided candidates loaded with full mission history
+- **Reliable Fallback** — Gemini 2.0 Flash → Gemini 1.5 Flash → offline simulation with real evaluation
+- **20 Candidate Profiles** — All Vicodathon-provided candidates loaded with full mission history
 - **Apple-Pure Design** — Minimal, monochrome dark/light themes with glassmorphism and smooth transitions
 
 ---
@@ -35,8 +35,8 @@ The AI Interview Agent conducts **personalized, multi-turn technical interviews*
 │                   FastAPI Backend (:8001)                     │
 │  ┌────────────────┐  ┌──────────────┐  ┌──────────────────┐ │
 │  │ Interview Engine│  │  LLM Client  │  │  Breeth Client   │ │
-│  │ (State Machine) │  │(Gemini/Claude│  │ (Memory Graph)   │ │
-│  │                 │  │  /Simulator) │  │                  │ │
+│  │ (State Machine) │  │ (Gemini +    │  │ (Memory Graph)   │ │
+│  │                 │  │  Simulator)  │  │                  │ │
 │  └────────────────┘  └──────────────┘  └──────────────────┘ │
 │  ┌────────────────┐  ┌──────────────┐                       │
 │  │ Session Store   │  │  Curriculum  │                       │
@@ -95,7 +95,7 @@ Open `http://localhost:3000`
 
 ---
 
-## 📋 Hackathon Requirements Met
+## 📋 Vicodathon Requirements Met
 
 | Requirement | Status |
 |---|---|
@@ -116,7 +116,7 @@ Open `http://localhost:3000`
 |---|---|
 | **Frontend** | React 18, Vite, Lucide Icons, react-markdown, remark-gfm |
 | **Backend** | Python, FastAPI, Pydantic, SQLite |
-| **AI/LLM** | Google Gemini 2.0 Flash (primary), Gemini 1.5 Flash, Anthropic Claude (fallback) |
+| **AI/LLM** | Google Gemini 2.0 Flash (primary), Gemini 1.5 Flash, offline simulation fallback |
 | **Memory** | Breeth Pro (persistent memory graph) |
 | **Styling** | Vanilla CSS, Apple-pure design system, Glassmorphism, Dark/Light themes |
 | **Design** | Inter + JetBrains Mono fonts, monochrome accent palette, CSS custom properties |
@@ -130,7 +130,7 @@ bitforge/
 ├── backend/
 │   ├── main.py              # FastAPI server, CORS, routes
 │   ├── interview_engine.py  # Core interview logic & state machine
-│   ├── llm_client.py        # Gemini/Claude/simulation LLM calls
+│   ├── llm_client.py        # Gemini/simulation LLM calls
 │   ├── breeth_client.py     # Breeth memory API integration
 │   ├── session_store.py     # SQLite session persistence
 │   └── schemas.py           # Pydantic models
@@ -152,4 +152,4 @@ bitforge/
 
 ---
 
-*Built with ❤️ by Team BitForge for the AI Cohort Hackathon 2026*
+*Built with ❤️ by Team BitForge for Vicodathon 2026, Problem Statement 2*

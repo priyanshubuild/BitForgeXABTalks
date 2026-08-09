@@ -3,22 +3,28 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Send, Bot, Award, Lightbulb } from 'lucide-react';
 
-/* Typing animation */
 function TypewriterText({ text, speed = 8, onDone }) {
   const [displayed, setDisplayed] = useState('');
   const [done, setDone] = useState(false);
   const iRef = useRef(0);
 
   useEffect(() => {
-    setDisplayed(''); setDone(false); iRef.current = 0;
+    setDisplayed('');
+    setDone(false);
+    iRef.current = 0;
     const iv = setInterval(() => {
-      if (iRef.current >= text.length) { clearInterval(iv); setDone(true); onDone?.(); return; }
+      if (iRef.current >= text.length) {
+        clearInterval(iv);
+        setDone(true);
+        onDone?.();
+        return;
+      }
       const chunk = text.slice(iRef.current, iRef.current + speed);
       setDisplayed(prev => prev + chunk);
       iRef.current += speed;
     }, 16);
     return () => clearInterval(iv);
-  }, [text]);
+  }, [text, onDone, speed]);
 
   return (
     <span>
@@ -29,22 +35,27 @@ function TypewriterText({ text, speed = 8, onDone }) {
 }
 
 const MD_COMPONENTS = {
-  p: ({ children }) => <p style={{ marginBottom: 8 }}>{children}</p>,
+  p: ({ children }) => <p style={{ marginBottom: 10 }}>{children}</p>,
   strong: ({ children }) => <strong style={{ color: 'var(--text-1)', fontWeight: 600 }}>{children}</strong>,
   em: ({ children }) => <em style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>{children}</em>,
   code: ({ children }) => (
     <code style={{
-      background: 'var(--bg-elevated)', padding: '2px 6px', borderRadius: 4,
-      fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-2)',
+      background: 'var(--bg-elevated)', padding: '2px 7px', borderRadius: 6,
+      fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-2)',
     }}>{children}</code>
   ),
-  ul: ({ children }) => <ul style={{ paddingLeft: 18, marginBottom: 6 }}>{children}</ul>,
-  ol: ({ children }) => <ol style={{ paddingLeft: 18, marginBottom: 6 }}>{children}</ol>,
-  li: ({ children }) => <li style={{ marginBottom: 3, fontSize: 13.5 }}>{children}</li>,
+  ul: ({ children }) => <ul style={{ paddingLeft: 20, marginBottom: 8 }}>{children}</ul>,
+  ol: ({ children }) => <ol style={{ paddingLeft: 20, marginBottom: 8 }}>{children}</ol>,
+  li: ({ children }) => <li style={{ marginBottom: 4, fontSize: 15 }}>{children}</li>,
 };
 
 function getTopicHints(topic) {
   if (!topic) return [];
+  if (topic.objectives?.length) {
+    return topic.objectives.slice(0, 3).map(o =>
+      o.length > 72 ? `${o.slice(0, 69)}…` : o
+    );
+  }
   const title = (topic.title || '').toLowerCase();
 
   if (title.includes('embedding')) {
@@ -81,7 +92,7 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  useEffect(() => { scrollToBottom(); }, [messages, isLoading]);
+  useEffect(() => { scrollToBottom(); }, [messages, isLoading, scrollToBottom]);
   useEffect(() => { if (!isLoading && !isComplete) inputRef.current?.focus(); }, [isLoading, isComplete]);
 
   const handleSubmit = (e) => {
@@ -100,51 +111,37 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
   const hints = getTopicHints(currentTopic);
 
   return (
-    <main className="chat-panel" style={{
-      flex: 1, display: 'flex', flexDirection: 'column', height: '100%',
-      overflow: 'hidden', background: 'var(--bg-base)', position: 'relative',
-    }}>
-      {/* Top bar */}
-      <div className="chat-topbar" style={{
-        padding: '8px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        borderBottom: '1px solid var(--border)', flexShrink: 0,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <main className="chat-panel">
+      <div className="chat-topbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span className={`status-dot ${isLoading ? 'loading' : 'online'}`} />
-          <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}>
-            {isLoading ? 'Thinking…' : isComplete ? 'Complete' : 'Live'}
+          <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-2)' }}>
+            {isLoading ? 'Thinking…' : isComplete ? 'Interview Complete' : 'Live Interview'}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {isComplete && (
-            <button className="btn-primary" onClick={onShowFeedback} style={{ fontSize: 11, padding: '5px 14px' }}>
-              <Award size={11} /> Report
+            <button className="btn-primary" onClick={onShowFeedback} style={{ fontSize: 14, padding: '8px 18px' }}>
+              <Award size={14} /> View Report
             </button>
           )}
-          <span className="mono" style={{ color: 'var(--text-3)', fontSize: 10 }}>
+          <span className="mono" style={{ color: 'var(--text-3)' }}>
             {messages.filter(m => m.role === 'assistant').length} Q
           </span>
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="chat-messages" style={{
-        flex: 1, overflowY: 'auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 18,
-      }}>
+      <div className="chat-messages">
         {messages.length === 0 && (
           <div style={{
             margin: 'auto', textAlign: 'center', display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 12, opacity: 0.4,
           }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 'var(--r-full)',
-              background: 'var(--text-1)', color: 'var(--bg-base)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
+            <div className="avatar-ai" style={{ width: 52, height: 52 }}>
               <Bot size={22} />
             </div>
-            <p style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-1)' }}>Interview Ready</p>
-            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Preparing evaluation session…</p>
+            <p style={{ fontWeight: 600, fontSize: 17, color: 'var(--text-1)' }}>Interview Ready</p>
+            <p style={{ fontSize: 14, color: 'var(--text-3)' }}>Preparing evaluation session…</p>
           </div>
         )}
 
@@ -153,25 +150,28 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
           const isLatestAI = isAI && i === messages.length - 1 && i > lastAnimated;
 
           return (
-            <div key={i} className="animate-fade-up" style={{
-              display: 'flex', gap: 10, maxWidth: '76%',
-              alignSelf: isAI ? 'flex-start' : 'flex-end',
-              flexDirection: isAI ? 'row' : 'row-reverse',
-              animationDelay: `${i * 0.02}s`,
-            }}>
+            <div
+              key={i}
+              className="animate-fade-up"
+              style={{
+                display: 'flex', gap: 12, maxWidth: '72%',
+                alignSelf: isAI ? 'flex-start' : 'flex-end',
+                flexDirection: isAI ? 'row' : 'row-reverse',
+                animationDelay: `${i * 0.02}s`,
+              }}
+            >
               {isAI
-                ? <div className="avatar-ai"><Bot size={15} strokeWidth={1.8} /></div>
+                ? <div className="avatar-ai"><Bot size={16} strokeWidth={1.8} /></div>
                 : <div className="avatar-user">{initials}</div>
               }
-              <div className={isAI ? 'bubble-ai' : 'bubble-user'} style={{ padding: '12px 16px' }}>
+              <div className={isAI ? 'bubble-ai' : 'bubble-user'} style={{ padding: '14px 18px' }}>
                 <div style={{
-                  fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
-                  color: 'var(--text-3)',
-                  marginBottom: 5, textTransform: 'uppercase',
+                  fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
+                  color: 'var(--text-3)', marginBottom: 6, textTransform: 'uppercase',
                 }}>
                   {isAI ? 'Interviewer' : candidate?.member?.name || 'You'}
                 </div>
-                <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--text-1)' }}>
+                <div style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--text-1)' }}>
                   {isAI ? (
                     isLatestAI
                       ? <TypewriterText text={msg.content} speed={6} onDone={() => setLastAnimated(i)} />
@@ -186,24 +186,23 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
         })}
 
         {isLoading && (
-          <div style={{ display: 'flex', gap: 10, alignSelf: 'flex-start' }} className="animate-fade-in">
-            <div className="avatar-ai"><Bot size={15} strokeWidth={1.8} /></div>
-            <div className="bubble-ai" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 12, alignSelf: 'flex-start' }} className="animate-fade-in">
+            <div className="avatar-ai"><Bot size={16} strokeWidth={1.8} /></div>
+            <div className="bubble-ai" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
               <div className="wave-bars"><span /><span /><span /><span /><span /></div>
-              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>thinking…</span>
+              <span style={{ fontSize: 14, color: 'var(--text-3)' }}>Thinking…</span>
             </div>
           </div>
         )}
         <div ref={endRef} />
       </div>
 
-      {/* Hints */}
       {!isComplete && currentTopic && hints.length > 0 && (
-        <div className="chat-hints" style={{ padding: '0 28px 6px', flexShrink: 0 }}>
+        <div className="chat-hints">
           <div className="pills-strip">
             {hints.map((hint, idx) => (
               <div key={idx} className="hint-pill">
-                <Lightbulb size={9} style={{ flexShrink: 0, display: 'inline', marginRight: 2, opacity: 0.5 }} />
+                <Lightbulb size={11} style={{ opacity: 0.5 }} />
                 <span>{hint}</span>
               </div>
             ))}
@@ -211,11 +210,7 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
         </div>
       )}
 
-      {/* Input */}
-      <div className="chat-composer" style={{
-        padding: '12px 20px', display: 'flex', gap: 8,
-        borderTop: '1px solid var(--border)', flexShrink: 0,
-      }}>
+      <form className="chat-composer" onSubmit={handleSubmit}>
         <textarea
           ref={inputRef}
           className="textarea-input"
@@ -225,14 +220,19 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
           placeholder={isComplete ? 'Interview complete — view your report.' : 'Type your response…'}
           disabled={isComplete || isLoading}
           rows={1}
-          style={{ minHeight: 42, maxHeight: 110, lineHeight: 1.5 }}
+          style={{ minHeight: 48, maxHeight: 120, lineHeight: 1.5 }}
+          aria-label="Your response"
         />
-        <button className="btn-primary" onClick={handleSubmit}
+        <button
+          type="submit"
+          className="btn-primary"
           disabled={isComplete || isLoading || !input.trim()}
-          style={{ height: 42, padding: '0 16px', flexShrink: 0, borderRadius: 'var(--r-lg)' }}>
-          <Send size={14} />
+          style={{ height: 48, padding: '0 20px', flexShrink: 0, borderRadius: 'var(--r-lg)' }}
+          aria-label="Send message"
+        >
+          <Send size={16} />
         </button>
-      </div>
+      </form>
     </main>
   );
 }

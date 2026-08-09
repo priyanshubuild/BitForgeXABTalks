@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -8,14 +10,20 @@ from backend.session_store import list_sessions
 
 app = FastAPI(
     title="AI Interview Agent API",
-    description="Backend service for AI Interview Agent hackathon",
+    description="Backend service for the Vicodathon Problem Statement 2 submission",
     version="1.0.0"
 )
 
 # Enable CORS for local testing and frontend interaction
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,6 +42,14 @@ class InterviewResponse(BaseModel):
     feedback: Optional[FeedbackShape] = None
     memories: Optional[List[Dict[str, Any]]] = None
     answer_judgment: Optional[str] = None
+    # Session snapshot — drives the Topics sidebar per candidate
+    target_days: Optional[List[Dict[str, Any]]] = None
+    current_topic: Optional[Dict[str, Any]] = None
+    current_topic_idx: Optional[int] = None
+    topic_results: Optional[Dict[str, Any]] = None
+    questions_asked: Optional[int] = None
+    days_covered: Optional[List[int]] = None
+    evaluation: Optional[Dict[str, Any]] = None
 
 # Health Check Routes
 @app.get("/health")
@@ -53,6 +69,8 @@ def debug_sessions():
     DEV-ONLY: Lists all session IDs currently persisted in SQLite.
     Use this to confirm the sessionId sent by the frontend matches one here.
     """
+    if os.getenv("DEBUG_API", "false").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(status_code=404, detail="Not found.")
     active = list_sessions()
     return {"session_ids": active, "count": len(active)}
 
@@ -64,8 +82,10 @@ def interview_endpoint(payload: Dict[str, Any] = Body(...)):
     Returns the expected contract: reply, done, feedback, memories.
     """
     session_id = payload.get("sessionId")
-    if not session_id:
+    if not isinstance(session_id, str) or not session_id.strip():
         raise HTTPException(status_code=400, detail="Missing required field 'sessionId'.")
+    if len(session_id) > 128:
+        raise HTTPException(status_code=400, detail="sessionId must not exceed 128 characters.")
 
     try:
         if "candidate" in payload:
@@ -76,6 +96,12 @@ def interview_endpoint(payload: Dict[str, Any] = Body(...)):
                 "done": bool(result.get("done", False)),
                 "feedback": None,
                 "memories": result.get("memories"),
+                "target_days": result.get("target_days"),
+                "current_topic": result.get("current_topic"),
+                "current_topic_idx": result.get("current_topic_idx"),
+                "topic_results": result.get("topic_results"),
+                "questions_asked": result.get("questions_asked"),
+                "days_covered": result.get("days_covered"),
             }
 
         if "message" in payload:
@@ -87,6 +113,13 @@ def interview_endpoint(payload: Dict[str, Any] = Body(...)):
                 "feedback": result.get("feedback"),
                 "memories": result.get("memories"),
                 "answer_judgment": result.get("answer_judgment"),
+                "target_days": result.get("target_days"),
+                "current_topic": result.get("current_topic"),
+                "current_topic_idx": result.get("current_topic_idx"),
+                "topic_results": result.get("topic_results"),
+                "questions_asked": result.get("questions_asked"),
+                "days_covered": result.get("days_covered"),
+                "evaluation": result.get("evaluation"),
             }
     except HTTPException:
         raise

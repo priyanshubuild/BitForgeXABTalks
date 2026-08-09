@@ -29,7 +29,7 @@ export default function Header({
               AI Interview Agent
             </h1>
             <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>
-              <Sparkles size={10} /> Hackathon Evaluation
+              <Sparkles size={10} /> Vicodathon · Problem Statement 2
             </span>
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>

@@ -1,12 +1,12 @@
 # AI Interview Agent — AI Usage & Prompt Log 📜🤖
 
-> **Hackathon Submission Requirement**: Full log of prompts, AI interactions, design decisions, and development phases used to build the **AI Interview Agent** for the AI Cohort Hackathon.
+> **Vicodathon Problem Statement 2 Submission Requirement**: Full log of prompts, AI interactions, design decisions, and development phases used to build the **AI Interview Agent**.
 
 ---
 
 ## 📌 Project Overview
 - **Project Name**: AI Technical Interview Agent
-- **Backend Stack**: Python, FastAPI, Pydantic, Google Gemini 2.0 Flash SDK, Anthropic Claude SDK, Uvicorn, SQLite
+- **Backend Stack**: Python, FastAPI, Pydantic, Google Gemini 2.0 Flash SDK, Uvicorn, SQLite
 - **Frontend Stack**: React 18, Vite, Lucide React, React Markdown, Remark-GFM, Glassmorphism CSS Design System
 - **Memory Layer**: Breeth API (`POST /v1/episodes`, `POST /v1/search`) for candidate knowledge graph
 - **Single API Contract**: `POST /api/interview` per `technical-spec.md`
@@ -32,7 +32,7 @@
 
 ### Phase 2: Requirements Analysis & Project Scaffolding
 **Prompt:**
-> I'm building an AI Interview Agent for a hackathon. I've attached curriculum.json, candidates.json, and technical-spec.md in the project root — read all three fully before doing anything.
+> I'm building an AI Interview Agent for Vicodathon, Problem Statement 2. I've attached curriculum.json, candidates.json, and technical-spec.md in the project root — read all three fully before doing anything.
 > Requirements:
 > - Backend: Python + FastAPI
 > - Single endpoint: POST /api/interview
@@ -46,8 +46,6 @@
 - `/backend/main.py` — FastAPI server with CORS middleware, health routes (`GET /health`), Pydantic schemas
 - `/backend/schemas.py` — Input payload and target output schemas
 - `/frontend/index.html` — Test UI scaffold
-- `requirements.txt` — `fastapi`, `uvicorn`, `pydantic`, `python-dotenv`, `anthropic`
-- `.env.example` — `ANTHROPIC_API_KEY` configuration
 
 **Core Accomplishments:**
 - Inspected `technical-spec.md`, `curriculum.json`, and `candidates.json`
@@ -66,11 +64,11 @@
 > 2. Build system prompt for LLM including candidate name/role, specific days/topics, and instructions to behave like a real technical interviewer (one question at a time, natural follow-ups for vague answers).
 > 3. On every subsequent request, append candidate message, call LLM with full history + system prompt, return reply.
 > 4. Hard minimum in code: don't allow "done": true until at least 8 questions asked AND 4 curriculum days touched.
-> Use Anthropic API (model claude-sonnet-4-6) via anthropic Python SDK in an isolated module.
+> Use Google Gemini through its Python SDK in an isolated module.
 > Show me the full flow with sample curl requests/responses.
 
 **Files Created / Modified:**
-- `/backend/llm_client.py` — Anthropic LLM calls with simulation fallbacks
+- `/backend/llm_client.py` — Gemini LLM calls with simulation fallbacks
 - `/backend/interview_engine.py` — In-memory session state, topic selection, 8-question / 4-day minimum rule
 - `/backend/main.py` — Routing `POST /api/interview` to initialization vs turn processing
 
@@ -199,17 +197,17 @@
 
 ### Phase 11: Full Design System Overhaul + Gemini Free LLM Integration
 **Prompt:**
-> strictly follow technical-spec.md, candidates.json and curriculum.md — make best ideal project that actually can win the hackathon. Most unique and great ui and ux — minimal and modern and blurry and glass effects. For completely free, how should it look ideally?
+> Strictly follow technical-spec.md, candidates.json and curriculum.md — make the best possible Vicodathon submission with a unique, polished UI and UX.
 
 **Files Created / Modified:**
-- `/backend/llm_client.py` — Google Gemini 2.0 Flash (free) as primary, Anthropic Claude secondary, offline simulation fallback
+- `/backend/llm_client.py` — Google Gemini 2.0 Flash (free) as primary, offline simulation fallback
 - `requirements.txt` — Added `google-generativeai`
 - `/src/index.css` — Complete rewrite: Inter + JetBrains Mono fonts, CSS token system, glassmorphism, premium animations
 - All `/src/components/*.jsx` — Rewritten for premium aesthetics
 - `/src/App.jsx` — Complete rewrite
 
 **Core Accomplishments:**
-- Upgraded LLM pipeline: Google Gemini 2.0 Flash (free) → Gemini 1.5 Flash fallback → Anthropic Claude → offline simulation
+- Upgraded LLM pipeline: Google Gemini 2.0 Flash (free) → Gemini 1.5 Flash fallback → offline simulation
 - Complete CSS design system: custom properties, glassmorphism utilities, chip badges, progress bars, wave loading bars
 - Verified FastAPI backend starts clean on port 8001; Vite dev server on port 3001
 - Tightened backend interview flow so fallback questions stay tied to selected curriculum days
@@ -253,7 +251,7 @@
 
 **Files Modified:**
 - `/backend/interview_engine.py` — Eval prompt, topic state machine, Breeth search fix, heuristic ordering
-- `/backend/llm_client.py` — Model fallback chain: gemini-2.0-flash → gemini-1.5-flash → Anthropic
+- `/backend/llm_client.py` — Model fallback chain: gemini-2.0-flash → gemini-1.5-flash → offline simulation
 
 **Core Accomplishments:**
 
@@ -277,10 +275,10 @@
 
 ### Phase 14: Complete UI/UX Overhaul — Immersive Multi-Page Experience
 **Prompt:**
-> Complete reform of the UI and UX. I want the most immersive and modern UI that doesn't feel like an AI slop. Make dark and light mode both visually great and finished. Load ALL 20 candidates from hackathon data. Add a landing page and candidate selection flow. Add markdown rendering in chat. Redesign all components with premium aesthetics.
+> Complete reform of the UI and UX. I want the most immersive and modern UI that doesn't feel generic. Make dark and light mode both visually great and finished. Load all 20 candidates from Vicodathon data. Add a landing page and candidate selection flow. Add markdown rendering in chat. Redesign all components with premium aesthetics.
 
 **Files Created / Modified:**
-- `src/data/candidates.js` *(new)* — All 20 hackathon candidates + curriculum modules data
+- `src/data/candidates.js` *(new)* — All 20 Vicodathon candidates + curriculum modules data
 - `src/index.css` — Complete rewrite: design system with landing, selection, interview styles
 - `src/components/LandingPage.jsx` *(new)* — Hero with animated stats, feature cards, tech badges
 - `src/components/CandidateSelect.jsx` *(new)* — Searchable grid with 20 candidate cards, progress bars
@@ -293,7 +291,7 @@
 
 **Core Accomplishments:**
 - **3-Page Navigation**: Landing → Candidate Selection → Interview, replacing single-page dropdown
-- **All 20 Candidates**: Complete hackathon `candidates.json` loaded (previously only 4)
+- **All 20 Candidates**: Complete Vicodathon `candidates.json` loaded (previously only 4)
 - **Immersive Landing Page**: Gradient hero, animated feature cards, tech badges, stat counters
 - **Candidate Selection Grid**: Searchable cards with completion bars, mini stats, hover CTAs
 - **Markdown Rendering**: `react-markdown` + `remark-gfm` for bold, code, lists in AI responses
@@ -393,7 +391,7 @@
 - [x] AI Usage Log: [`PROMPTS.md`](./PROMPTS.md) — This file (unified prompt & development log)
 - [x] Backend API: `POST /api/interview` & `GET /health` & `GET /api/sessions` (port 8001)
 - [x] React Single Page Application with client fallbacks ready for Vercel/Netlify deployment (port 3001)
-- [x] Free LLM: Google Gemini 2.0 Flash (no cost) → Gemini 1.5 Flash fallback → Anthropic Claude → offline simulation with real evaluation
+- [x] Free LLM: Google Gemini 2.0 Flash (no cost) → Gemini 1.5 Flash fallback → offline simulation with real evaluation
 - [x] Memory Layer: Breeth API (`POST /v1/episodes`, `POST /v1/search`) with async-aware search timing
 - [x] Session Persistence: SQLite (`backend/sessions.db`) — survives hot-reload and serverless cold starts
 - [x] Evaluation Pipeline: LLM topical judgment → topic state machine → explicit mismatch naming → answer quality tracking
@@ -404,5 +402,4 @@
 ## 🛠️ AI Tools Used
 - **Antigravity** (Google DeepMind) — Primary AI coding assistant for all development phases
 - **Google Gemini 2.0 Flash** — Primary LLM for interview question generation and answer evaluation
-- **Anthropic Claude** — Secondary LLM fallback
 - **Breeth API** — Memory graph for candidate knowledge persistence across interview turns

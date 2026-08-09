@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowLeft, ArrowRight, Briefcase, GraduationCap, Clock, CheckCircle, SkipForward, Users, Info } from 'lucide-react';
+import { Search, ArrowLeft, ArrowRight, Briefcase, GraduationCap, Clock, CheckCircle, SkipForward, Users, Sun, Moon } from 'lucide-react';
 
-export default function CandidateSelect({ candidates, onSelect, onBack }) {
+export default function CandidateSelect({ candidates, onSelect, onBack, theme, setTheme }) {
   const [search, setSearch] = useState('');
   const [hoveredId, setHoveredId] = useState(null);
 
@@ -21,14 +21,22 @@ export default function CandidateSelect({ candidates, onSelect, onBack }) {
   const getSkippedCount = (c) => c.missions.filter(m => m.skipped).length;
   const getFailedCount = (c) => c.missions.filter(m => m.passed === false && !m.skipped).length;
 
+  const handleKeyActivate = (e, candidate) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onSelect(candidate);
+    }
+  };
+
   return (
     <div className="candidates-page">
       <div className="mesh-bg" />
 
-      {/* Header */}
       <div className="candidates-topbar">
         <div className="candidates-topbar-copy">
-          <button className="icon-btn" onClick={onBack}><ArrowLeft size={15} /></button>
+          <button className="icon-btn" onClick={onBack} aria-label="Back to home">
+            <ArrowLeft size={16} />
+          </button>
           <div className="candidates-topbar-text">
             <h2>Select Candidate</h2>
             <p>Choose a candidate to begin their technical interview</p>
@@ -40,23 +48,24 @@ export default function CandidateSelect({ candidates, onSelect, onBack }) {
             <Search size={14} className="search-icon" />
             <input
               className="search-bar"
-              placeholder="Search by name or role..."
+              placeholder="Search by name or role…"
               value={search}
               onChange={e => setSearch(e.target.value)}
+              aria-label="Search candidates"
             />
           </div>
           <div className="chip chip-muted candidates-count">
             <Users size={11} /> {filtered.length} candidates
           </div>
-        </div>
-      </div>
-
-      <div style={{ padding: '0 28px 14px', position: 'relative', zIndex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, color: 'var(--text-3)', fontSize: 11, lineHeight: 1.5 }}>
-          <Info size={12} style={{ flexShrink: 0, marginTop: 1 }} />
-          <p>
-            The profile snapshot comes from <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>candidates.json</span>. The mission stats below are derived from the listed missions, while cohort progress uses the summary signal field.
-          </p>
+          {setTheme && (
+            <button
+              className="icon-btn"
+              onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+              aria-label="Toggle theme"
+            >
+              {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+            </button>
+          )}
         </div>
       </div>
 
@@ -73,19 +82,21 @@ export default function CandidateSelect({ candidates, onSelect, onBack }) {
             <div
               key={c.member.id}
               className="candidate-card animate-scale-in"
-              style={{ animationDelay: `${idx * 0.03}s` }}
+              style={{ animationDelay: `${idx * 0.025}s` }}
               onClick={() => onSelect(c)}
+              onKeyDown={e => handleKeyActivate(e, c)}
               onMouseEnter={() => setHoveredId(c.member.id)}
               onMouseLeave={() => setHoveredId(null)}
+              tabIndex={0}
+              role="button"
+              aria-label={`Start interview with ${c.member.name}`}
             >
               <div className="candidate-card-head">
                 <div className="candidate-avatar">{initials}</div>
                 <div className="candidate-card-copy">
-                  <h3>
-                    {c.member.name}
-                  </h3>
+                  <h3>{c.member.name}</h3>
                   <div className="candidate-role">
-                    <Briefcase size={11} />
+                    <Briefcase size={12} />
                     <span>{c.member.jobRole}</span>
                   </div>
                   <div className="candidate-meta">
@@ -102,21 +113,16 @@ export default function CandidateSelect({ candidates, onSelect, onBack }) {
               <div className="candidate-progress">
                 <div className="candidate-progress-head">
                   <span>Cohort Progress</span>
-                  <span className="candidate-progress-value" style={{ color: pct >= 90 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--red)' }}>
-                    {pct}%
-                  </span>
+                  <span className="candidate-progress-value">{pct}%</span>
                 </div>
-                <div className="progress-track candidate-progress-track">
-                  <div className="progress-fill" style={{
-                    width: `${pct}%`,
-                    background: pct >= 90 ? 'var(--green)' : pct >= 60 ? 'linear-gradient(90deg, var(--amber), var(--green))' : 'var(--amber)',
-                  }} />
+                <div className="progress-track">
+                  <div className="progress-fill" style={{ width: `${pct}%` }} />
                 </div>
               </div>
 
               <div className="candidate-mini-stats">
                 <div className="candidate-mini-stat">
-                  <div className="candidate-stat-value candidate-gap-value">{passed}</div>
+                  <div className="candidate-stat-value">{passed}</div>
                   <div className="candidate-stat-label">
                     <CheckCircle size={8} /> Passed
                   </div>
@@ -126,7 +132,7 @@ export default function CandidateSelect({ candidates, onSelect, onBack }) {
                   <div className="candidate-stat-label">1st Try</div>
                 </div>
                 <div className="candidate-mini-stat">
-                  <div className="candidate-stat-value" style={{ color: skipped + failed > 0 ? 'var(--amber)' : 'var(--text-3)' }}>{skipped + failed}</div>
+                  <div className="candidate-stat-value">{skipped + failed}</div>
                   <div className="candidate-stat-label">
                     <SkipForward size={8} /> Gaps
                   </div>

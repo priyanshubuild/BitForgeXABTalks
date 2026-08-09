@@ -7,6 +7,9 @@ import ChatStream from './components/ChatStream';
 import FeedbackModal from './components/FeedbackModal';
 import { ALL_CANDIDATES } from './data/candidates';
 
+const createSessionId = () =>
+  globalThis.crypto?.randomUUID?.() ?? `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
 export default function App() {
   // Navigation: 'landing' | 'select' | 'interview'
   const [page, setPage] = useState('landing');
@@ -14,7 +17,7 @@ export default function App() {
 
   // Interview state
   const [activeCandidate, setActiveCandidate] = useState(null);
-  const [sessionId, setSessionId] = useState(`sess-${Date.now()}`);
+  const [sessionId, setSessionId] = useState(createSessionId);
   const [backendUrl] = useState('http://localhost:8001');
   const [isBackendOnline, setIsBackendOnline] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -26,9 +29,16 @@ export default function App() {
   const [feedback, setFeedback] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
 
-  // NEW: Track per-topic interview results (not mission history!)
   const [topicResults, setTopicResults] = useState({});
-  // e.g. { 7: 'strong', 10: 'off_topic', 12: 'vague', ... }
+  const [currentTopicIdx, setCurrentTopicIdx] = useState(0);
+
+  const applySessionSnapshot = (data) => {
+    if (data.target_days?.length) setTargetDays(data.target_days);
+    if (data.questions_asked != null) setQuestionsAsked(data.questions_asked);
+    if (data.days_covered) setDaysCovered(new Set(data.days_covered));
+    if (data.topic_results) setTopicResults(data.topic_results);
+    if (data.current_topic_idx != null) setCurrentTopicIdx(data.current_topic_idx);
+  };
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -50,22 +60,12 @@ export default function App() {
     setIsLoading(true);
     setIsComplete(false);
     setFeedback(null);
-    setQuestionsAsked(1);
+    setQuestionsAsked(0);
     setMessages([]);
     setTopicResults({});
-
-    const missions = candidateObj.missions || [];
-    const passed = missions.filter(m => m.passed).slice(0, 4);
-    const skipped = missions.filter(m => m.skipped || !m.passed).slice(0, 1);
-    const combined = [...passed, ...skipped];
-    const formatted = combined.map(m => ({
-      day: m.day, title: m.title,
-      tools: ['Python', 'FastAPI', 'LLMs'],
-      passed: !!m.passed, skipped: !!m.skipped,
-      attempts: m.attempts || 1,
-    }));
-    setTargetDays(formatted);
-    setDaysCovered(new Set([formatted[0]?.day ?? 7]));
+    setCurrentTopicIdx(0);
+    setTargetDays([]);
+    setDaysCovered(new Set());
 
     if (isBackendOnline) {
       try {
@@ -74,14 +74,32 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId: sid, candidate: candidateObj }),
         });
+        if (!res.ok) throw new Error(`Backend returned ${res.status}`);
         const data = await res.json();
+        if (typeof data.reply !== 'string') throw new Error('Backend returned an invalid interview response');
         setMessages([{ role: 'assistant', content: data.reply }]);
+        applySessionSnapshot(data);
         setIsLoading(false);
         return;
       } catch (e) { console.warn('Backend init failed, using simulation', e); }
     }
 
-    // Simulation fallback
+    // Offline fallback — simplified topic list until backend connects
+    const missions = candidateObj.missions || [];
+    const gaps = missions.filter(m => m.skipped || m.passed === false).slice(0, 2);
+    const depth = missions.filter(m => m.passed && (m.attempts ?? 1) >= 3).slice(0, 2);
+    const rest = missions.filter(m => m.passed && !gaps.includes(m) && !depth.includes(m)).slice(0, 2);
+    const combined = [...gaps, ...depth, ...rest].slice(0, 5);
+    const formatted = combined.map(m => ({
+      day: m.day, title: m.title,
+      tools: [], objectives: [],
+      passed: !!m.passed, skipped: !!m.skipped,
+      attempts: m.attempts || 1,
+      probe_reason: m.skipped ? 'Gap probe — skipped in cohort' : (m.passed === false ? 'Gap probe — not passed' : `Review — ${m.attempts || 1} attempt(s)`),
+    }));
+    setTargetDays(formatted);
+    setDaysCovered(new Set([formatted[0]?.day].filter(Boolean)));
+    setQuestionsAsked(1);
     setTimeout(() => {
       const firstDay = formatted[0] ?? { day: 7, title: 'Embeddings Explained' };
       setMessages([{
@@ -94,14 +112,14 @@ export default function App() {
 
   const handleSelectCandidate = (candidate) => {
     setActiveCandidate(candidate);
-    const sid = `sess-${Date.now()}`;
+    const sid = createSessionId();
     setSessionId(sid);
     setPage('interview');
     initSession(candidate, sid);
   };
 
   const handleResetSession = () => {
-    const sid = `sess-${Date.now()}`;
+    const sid = createSessionId();
     setSessionId(sid);
     initSession(activeCandidate, sid);
   };
@@ -153,25 +171,11 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId, message: text }),
         });
+        if (!res.ok) throw new Error(`Backend returned ${res.status}`);
         const data = await res.json();
+        if (typeof data.reply !== 'string') throw new Error('Backend returned an invalid interview response');
         setMessages([...updated, { role: 'assistant', content: data.reply }]);
-        setQuestionsAsked(q => q + 1);
-
-        if (targetDays[questionsAsked % targetDays.length]) {
-          const coveredDay = targetDays[questionsAsked % targetDays.length];
-          setDaysCovered(prev => new Set([...prev, coveredDay.day]));
-        }
-
-        // Extract judgment from backend response if available
-        if (data.answer_judgment) {
-          const curDay = targetDays[(questionsAsked - 1) % (targetDays.length || 1)];
-          if (curDay) {
-            setTopicResults(prev => ({
-              ...prev,
-              [curDay.day]: data.answer_judgment,
-            }));
-          }
-        }
+        applySessionSnapshot(data);
 
         if (data.done) {
           setIsComplete(true);
@@ -191,7 +195,12 @@ export default function App() {
       const curDay = targetDays[tidx] || targetDays[0];
       const prevTidx = (nextTurn - 2) % (targetDays.length || 1);
       const prevDay = targetDays[prevTidx] || targetDays[0];
-      if (curDay) setDaysCovered(prev => new Set([...prev, curDay.day]));
+      const updatedDaysCovered = new Set(daysCovered);
+      if (curDay) {
+        updatedDaysCovered.add(curDay.day);
+        setDaysCovered(updatedDaysCovered);
+      }
+      setCurrentTopicIdx(tidx);
 
       // Evaluate the answer against the PREVIOUS topic (what was asked about)
       const judgment = evaluateAnswerLocally(text, prevDay?.title || 'general AI');
@@ -204,7 +213,7 @@ export default function App() {
         }));
       }
 
-      if (nextTurn >= 8 && (daysCovered?.size ?? 0) >= 3) {
+      if (nextTurn >= 8 && updatedDaysCovered.size >= 4) {
         // Count weak vs strong answers
         const allResults = { ...topicResults };
         if (prevDay) allResults[prevDay.day] = judgment;
@@ -291,11 +300,9 @@ export default function App() {
     }, 700);
   };
 
-  // Get the current topic being discussed (for contextual hints)
   const getCurrentTopic = () => {
     if (!targetDays.length) return null;
-    const idx = (questionsAsked - 1) % (targetDays.length || 1);
-    return targetDays[idx] || targetDays[0];
+    return targetDays[currentTopicIdx] || targetDays[0];
   };
 
   // ─── RENDER ───────────────────────────────────────────────
@@ -304,7 +311,15 @@ export default function App() {
   }
 
   if (page === 'select') {
-    return <CandidateSelect candidates={ALL_CANDIDATES} onSelect={handleSelectCandidate} onBack={() => setPage('landing')} />;
+    return (
+      <CandidateSelect
+        candidates={ALL_CANDIDATES}
+        onSelect={handleSelectCandidate}
+        onBack={() => setPage('landing')}
+        theme={theme}
+        setTheme={setTheme}
+      />
+    );
   }
 
   // Interview page — NO memory graph panel
@@ -329,6 +344,8 @@ export default function App() {
           questionsAsked={questionsAsked}
           daysCovered={daysCovered}
           topicResults={topicResults}
+          currentTopicIdx={currentTopicIdx}
+          isComplete={isComplete}
         />
 
         <ChatStream

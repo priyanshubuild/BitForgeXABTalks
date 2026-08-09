@@ -1,14 +1,13 @@
 import os
 import json
 import re
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # -- Model Config -------------------------------------------------------------
 GEMINI_MODEL    = os.getenv("GEMINI_MODEL",  "gemini-2.0-flash")
-ANTHROPIC_MODEL = os.getenv("LLM_MODEL",     "claude-3-5-sonnet-20241022")
 
 # -- Gemini Client ------------------------------------------------------------
 def get_gemini_client():
@@ -22,19 +21,6 @@ def get_gemini_client():
     except Exception as e:
         print(f"Warning: Could not initialize Gemini client: {e}")
         return None
-
-# -- Anthropic Client ---------------------------------------------------------
-def get_anthropic_client():
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        return None
-    try:
-        import anthropic
-        return anthropic.Anthropic(api_key=api_key)
-    except Exception as e:
-        print(f"Warning: Could not initialize Anthropic client: {e}")
-        return None
-
 
 def _call_gemini(genai, model_name: str, system_prompt: str, messages: List[Dict], max_tokens: int, temperature: float):
     """Helper: run one Gemini model call. Returns raw text or raises."""
@@ -58,26 +44,10 @@ def _call_gemini(genai, model_name: str, system_prompt: str, messages: List[Dict
     return response.text.strip()
 
 
-def _call_anthropic(client, model_name: str, system_prompt: str, messages: List[Dict], max_tokens: int, temperature: float):
-    """Helper: run one Anthropic call. Returns raw text or raises."""
-    formatted = [
-        {"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]}
-        for m in messages
-    ]
-    response = client.messages.create(
-        model=model_name,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        system=system_prompt,
-        messages=formatted
-    )
-    return response.content[0].text.strip()
-
-
 # -- Main LLM Call (with simulation fallback) ---------------------------------
 def call_llm(system_prompt: str, messages: List[Dict[str, str]]) -> Dict[str, Any]:
     """
-    Tries Gemini first (primary + 1.5-flash fallback), then Anthropic, then simulation.
+    Tries Gemini first (primary + 1.5-flash fallback), then simulation.
     """
     genai = get_gemini_client()
     if genai:
@@ -90,16 +60,7 @@ def call_llm(system_prompt: str, messages: List[Dict[str, str]]) -> Dict[str, An
                 print(f"Gemini API Exception ({model_name}): {e}")
                 if "quota" in str(e).lower() or "429" in str(e):
                     continue   # Try next Gemini model
-                break          # Non-quota error, try Anthropic
-
-    client = get_anthropic_client()
-    if client:
-        try:
-            raw = _call_anthropic(client, ANTHROPIC_MODEL, system_prompt, messages, 1400, 0.75)
-            parsed = parse_llm_json(raw)
-            return parsed if parsed else {"reply": raw, "is_complete": False, "day_covered": None, "feedback": None}
-        except Exception as e:
-            print(f"Anthropic API Exception: {e}. Using simulation engine.")
+                break
 
     return simulate_llm_response(system_prompt, messages)
 
@@ -111,7 +72,7 @@ def call_llm_for_evaluation(system_prompt: str, messages: List[Dict[str, str]]) 
 
     Used exclusively by evaluate_answer() so a simulation-generated interview
     question is never mistaken for a structured evaluation response.
-    Returns None if both real LLMs are unavailable -- caller uses heuristic fallback.
+    Returns None if Gemini is unavailable -- caller uses heuristic fallback.
     """
     genai = get_gemini_client()
     if genai:
@@ -126,16 +87,7 @@ def call_llm_for_evaluation(system_prompt: str, messages: List[Dict[str, str]]) 
                     continue
                 break
 
-    client = get_anthropic_client()
-    if client:
-        try:
-            raw = _call_anthropic(client, ANTHROPIC_MODEL, system_prompt, messages, 600, 0.3)
-            parsed = parse_llm_json(raw)
-            return parsed
-        except Exception as e:
-            print(f"Anthropic eval exception: {e}")
-
-    print("[Evaluator] Both LLMs unavailable -- local heuristic will be used instead.")
+    print("[Evaluator] Gemini is unavailable -- local heuristic will be used instead.")
     return None
 
 
@@ -181,6 +133,85 @@ def _extract_target_days(system_prompt: str) -> List[Tuple[int, str]]:
         return [(7, "Embeddings Explained")]
     return days[:6]
 
+
+def _parse_evaluation_block(system_prompt: str) -> Optional[Dict[str, str]]:
+    """Extract evaluator judgment from augmented system prompt (offline mode)."""
+    if "EVALUATOR JUDGMENT" not in system_prompt:
+        return None
+    block = {}
+    patterns = {
+        "judgment": r"Answer quality:\s*(\S+)",
+        "reasoning": r"Reasoning:\s*(.+?)(?:\nRequired|\nSpecific|\nMANDATORY|$)",
+        "next_action": r"Required next action:\s*(\S+)",
+        "instruction": r"Specific instruction:\s*(.+?)(?:\n\nMANDATORY|\n===|$)",
+        "topic": r"Current topic being tested:\s*Day\s+(\d+)\s*—\s*(.+?)(?:\n|$)",
+    }
+    for key, pat in patterns.items():
+        m = re.search(pat, system_prompt, re.DOTALL | re.IGNORECASE)
+        if m:
+            block[key] = m.group(1).strip() if key != "topic" else (m.group(1).strip(), m.group(2).strip())
+    return block if block else None
+
+
+def _simulation_reply_from_evaluation(
+    eval_block: Dict[str, Any],
+    candidate_name: str,
+    last_user_msg: str,
+) -> Tuple[str, str]:
+    """Build interviewer reply from parsed evaluation verdict (offline mode)."""
+    topic_tuple = eval_block.get("topic")
+    day_num, day_title = topic_tuple if topic_tuple else ("?", "this topic")
+    judgment_raw = (eval_block.get("judgment") or "ON_TOPIC_VAGUE").lower()
+    instruction = eval_block.get("instruction") or ""
+    reasoning = eval_block.get("reasoning") or ""
+
+    if "insufficient" in judgment_raw or "reject" in (eval_block.get("next_action") or ""):
+        prefix = (
+            f"**Verdict: Insufficient** — your answer doesn't give me enough to evaluate "
+            f"Day {day_num} ({day_title}). "
+        )
+        if reasoning:
+            prefix += f"{reasoning.strip()} "
+        suffix = instruction or (
+            f"Please answer specifically: what did you implement or learn for **{day_title}**, "
+            "including the tools you used and one concrete tradeoff?"
+        )
+        return prefix + suffix, "insufficient"
+
+    if "off_topic" in judgment_raw or "wrong" in judgment_raw:
+        prefix = f"**Verdict: Off-Topic** — that response doesn't address Day {day_num} ({day_title}). "
+        if reasoning:
+            prefix += f"{reasoning.strip()} "
+        suffix = instruction or (
+            f"Let's refocus on **{day_title}**: walk me through the core concept and "
+            "how you'd apply it in a production RAG or chatbot pipeline."
+        )
+        return prefix + suffix, "off_topic" if "off_topic" in judgment_raw else "wrong"
+
+    if "vague" in judgment_raw:
+        prefix = "**Verdict: Insufficient depth** — you're on the right topic but I need more specificity. "
+        suffix = instruction or (
+            f"For **Day {day_num} ({day_title})**, name the exact tools, configuration, "
+            "or code pattern you used — not just the high-level idea."
+        )
+        return prefix + suffix, "on_topic_vague"
+
+    # Strong / adequate — probe deeper or advance
+    if "advance" in (instruction or "").lower() or "next topic" in (instruction or "").lower():
+        advance_match = re.search(r"Day\s+(\d+)\s*—\s*([^\n.]+)", instruction)
+        if advance_match:
+            nd, nt = advance_match.group(1), advance_match.group(2).strip()
+            return (
+                f"Good — that covers **{day_title}** adequately. "
+                f"Moving to **Day {nd} — {nt}**: "
+                f"{candidate_name}, describe your approach to this topic and the hardest decision you made.",
+                "on_topic_strong",
+            )
+    return (
+        f"Solid point on **{day_title}**. One level deeper: "
+        f"what edge case or failure mode would break your approach first, and how would you fix it?",
+        "on_topic_strong",
+    )
 
 def _build_fallback_question(day_num: int, day_title: str, candidate_name: str, turn_index: int, last_user_msg: str) -> str:
     title_lower = day_title.lower()
@@ -265,7 +296,7 @@ def _fallback_evaluate_answer(answer: str, day_title: str) -> Dict[str, str]:
 
 def simulate_llm_response(system_prompt: str, messages: List[Dict[str, str]]) -> Dict[str, Any]:
     """
-    Offline fallback used ONLY when both Gemini and Anthropic are unavailable.
+    Offline fallback used when Gemini is unavailable.
 
     This path now evaluates answers for quality and can FAIL weak responses.
     Responses are clearly labeled as offline simulation mode.
@@ -314,6 +345,22 @@ def simulate_llm_response(system_prompt: str, messages: List[Dict[str, str]]) ->
     user_messages = [m for m in messages if m.get("role") == "user"]
     turn_index = max(0, len(user_messages) - 1)
     last_user_msg = user_messages[-1].get("content", "") if user_messages else ""
+
+    # When interview_engine injected an evaluator verdict, honour it in offline mode
+    eval_block = _parse_evaluation_block(system_prompt)
+    if eval_block and last_user_msg:
+        reply, answer_judgment = _simulation_reply_from_evaluation(
+            eval_block, candidate_name, last_user_msg
+        )
+        topic_tuple = eval_block.get("topic")
+        day_num = int(topic_tuple[0]) if topic_tuple else (target_days[0][0] if target_days else 7)
+        return {
+            "reply": reply + "\n\n_Offline mode — connect GEMINI_API_KEY for full AI evaluation._",
+            "is_complete": False,
+            "day_covered": day_num,
+            "answer_judgment": answer_judgment,
+            "feedback": None,
+        }
 
     day_num, day_title = target_days[turn_index % len(target_days)] if target_days else (7, "Embeddings Explained")
 

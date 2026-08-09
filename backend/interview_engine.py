@@ -47,62 +47,145 @@ def load_curriculum() -> Dict[str, Any]:
 CURRICULUM_DATA = load_curriculum()
 
 
+def _module_for_day(day_num: int) -> str:
+    for mod in CURRICULUM_DATA.get("modules", []):
+        if day_num in mod.get("days", []):
+            return mod.get("title", f"Module {mod.get('n', '?')}")
+    return "General"
+
+
+def _probe_reason(m_info: Dict[str, Any]) -> str:
+    if m_info.get("skipped"):
+        return "Gap probe — mission was skipped in cohort"
+    if m_info.get("passed") is False:
+        return "Gap probe — mission was not passed"
+    attempts = m_info.get("attempts") or 1
+    if attempts >= 3:
+        return f"Depth probe — passed after {attempts} attempts"
+    if attempts == 1:
+        return "Mastery verify — passed on first try"
+    return f"Review — passed after {attempts} attempts"
+
+
+def _role_priority_days(job_role: str) -> List[int]:
+    """Role-specific curriculum days to prioritize when building the agenda."""
+    role = (job_role or "").lower()
+    if any(k in role for k in ("devops", "sre", "platform", "infrastructure")):
+        return [28, 29, 26, 27, 30]
+    if any(k in role for k in ("data engineer", "data scientist")):
+        return [4, 5, 6, 9, 10]
+    if any(k in role for k in ("ai engineer", "ml engineer", "machine learning")):
+        return [11, 13, 14, 15, 21, 22, 23]
+    if any(k in role for k in ("frontend", "mobile", "ux", "design")):
+        return [3, 17, 18, 19]
+    if any(k in role for k in ("business", "analyst", "marketing", "hr")):
+        return [12, 16, 20, 25]
+    if any(k in role for k in ("architect", "principal", "distinguished")):
+        return [22, 23, 27, 28, 31]
+    if any(k in role for k in ("intern", "junior", "bootcamp")):
+        return [1, 3, 7, 12, 16]
+    return [7, 10, 12, 16, 22, 28]
+
+
 def select_target_days(candidate: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Selects 4 to 6 target curriculum days based on candidate's completed/skipped missions.
-    Prioritizes passed days across different modules, plus probes skipped/failed days.
+    Builds a candidate-specific interview agenda (5–6 topics):
+    1. Skipped/failed missions (gap probes) — highest priority
+    2. High-attempt passes (depth probes — struggled but passed)
+    3. Role-relevant curriculum days from mission history
+    4. First-try passes spread across modules (mastery verify)
     """
     missions = candidate.get("missions", [])
     mission_map = {m["day"]: m for m in missions}
-    
     curriculum_days = {d["day"]: d for d in CURRICULUM_DATA.get("days", [])}
-    
-    passed_days = [m for m in missions if m.get("passed") is True]
-    skipped_days = [m for m in missions if m.get("skipped") is True or m.get("passed") is False]
-    
-    selected_day_nums = []
-    
-    # 1. Pick 3 to 4 distinct passed days evenly spaced across curriculum modules
-    if passed_days:
-        # Sort by day number
-        passed_days_sorted = sorted(passed_days, key=lambda x: x["day"])
-        step = max(1, len(passed_days_sorted) // 4)
-        for i in range(0, len(passed_days_sorted), step):
-            d_num = passed_days_sorted[i]["day"]
-            if d_num not in selected_day_nums:
-                selected_day_nums.append(d_num)
-            if len(selected_day_nums) >= 4:
-                break
-                
-    # 2. Pick at least 1 skipped or probed day to evaluate gaps carefully
-    for s_mission in skipped_days:
-        if s_mission["day"] not in selected_day_nums:
-            selected_day_nums.append(s_mission["day"])
-            break
+    job_role = candidate.get("member", {}).get("jobRole", "")
 
-    # Fill up to 5 days if needed from curriculum
+    gap_missions = sorted(
+        [m for m in missions if m.get("skipped") or m.get("passed") is False],
+        key=lambda x: x["day"],
+    )
+    depth_missions = sorted(
+        [m for m in missions if m.get("passed") and (m.get("attempts") or 1) >= 3],
+        key=lambda x: -(x.get("attempts") or 1),
+    )
+    mastery_missions = sorted(
+        [m for m in missions if m.get("passed") and (m.get("attempts") or 1) == 1],
+        key=lambda x: x["day"],
+    )
+
+    role_days = _role_priority_days(job_role)
+    role_missions = [
+        mission_map[d] for d in role_days
+        if d in mission_map and mission_map[d].get("passed")
+    ]
+
+    selected_day_nums: List[int] = []
+    seen_modules: Set[str] = set()
+
+    def _add(day_num: int, prefer_module_spread: bool = False) -> bool:
+        if day_num in selected_day_nums:
+            return False
+        if prefer_module_spread:
+            mod = _module_for_day(day_num)
+            if mod in seen_modules and len(selected_day_nums) >= 3:
+                return False
+            seen_modules.add(mod)
+        selected_day_nums.append(day_num)
+        return True
+
+    for m in gap_missions[:2]:
+        _add(m["day"])
+
+    for m in depth_missions[:2]:
+        _add(m["day"], prefer_module_spread=True)
+
+    for m in role_missions[:2]:
+        _add(m["day"], prefer_module_spread=True)
+
+    for m in mastery_missions:
+        if len(selected_day_nums) >= 5:
+            break
+        _add(m["day"], prefer_module_spread=True)
+
     if len(selected_day_nums) < 4:
-        for m in missions:
-            if m["day"] not in selected_day_nums:
-                selected_day_nums.append(m["day"])
-            if len(selected_day_nums) >= 4:
+        for m in sorted(missions, key=lambda x: x["day"]):
+            _add(m["day"])
+            if len(selected_day_nums) >= 5:
                 break
 
     target_days = []
-    for d_num in selected_day_nums:
+    for d_num in selected_day_nums[:6]:
         c_day = curriculum_days.get(d_num, {"day": d_num, "title": f"Day {d_num}", "objectives": [], "tools": []})
         m_info = mission_map.get(d_num, {})
         target_days.append({
             "day": d_num,
-            "title": c_day.get("title", f"Day {d_num}"),
+            "title": c_day.get("title", m_info.get("title", f"Day {d_num}")),
             "tools": c_day.get("tools", []),
             "objectives": c_day.get("objectives", []),
-            "passed": m_info.get("passed", False),
-            "skipped": m_info.get("skipped", False),
-            "attempts": m_info.get("attempts", 1)
+            "passed": bool(m_info.get("passed")),
+            "skipped": bool(m_info.get("skipped")),
+            "attempts": m_info.get("attempts", 1),
+            "module": _module_for_day(d_num),
+            "probe_reason": _probe_reason(m_info),
         })
 
     return target_days
+
+
+def _session_snapshot(session: Dict[str, Any]) -> Dict[str, Any]:
+    """Serialisable session state for the frontend Topics panel."""
+    target_days = session.get("target_days", [])
+    idx = min(session.get("current_topic_idx", 0), max(len(target_days) - 1, 0))
+    current = target_days[idx] if target_days else None
+    topic_results = session.get("topic_results", {})
+    return {
+        "target_days": target_days,
+        "current_topic": current,
+        "current_topic_idx": idx,
+        "topic_results": topic_results,
+        "questions_asked": session.get("questions_asked", 0),
+        "days_covered": sorted(session.get("days_covered", set())),
+    }
 
 
 def build_system_prompt(candidate: Dict[str, Any], target_days: List[Dict[str, Any]]) -> str:
@@ -122,7 +205,7 @@ def build_system_prompt(candidate: Dict[str, Any], target_days: List[Dict[str, A
         target_days_text += f"  Tools: {', '.join(td['tools'])}\n"
         target_days_text += f"  Objectives: {'; '.join(td['objectives'][:2])}\n"
 
-    prompt = f"""You are an expert AI Technical Interviewer conducting a live evaluation for the AI Cohort Hackathon.
+    prompt = f"""You are an expert AI Technical Interviewer conducting a live evaluation for Vicodathon, Problem Statement 2.
 
 Candidate Profile:
 - Name: {name}
@@ -236,11 +319,13 @@ def _heuristic_evaluate(question: str, answer: str, day_info: Optional[Dict[str,
     if not unique_kw:
         # No specific keywords available -- default to length-based judgment
         if word_count < 20:
-            return {"judgment": "on_topic_vague", "reasoning": "Answer too brief.",
-                    "next_action": "cross_examine",
-                    "follow_up_instruction": "Ask for more technical detail with a concrete implementation example."}
-        return {"judgment": "on_topic_vague", "reasoning": "Could not extract topic keywords.",
-                "next_action": "probe_deeper",
+            return {"judgment": "insufficient", "verdict_label": "Insufficient",
+                    "reasoning": "Answer too brief to evaluate.",
+                    "next_action": "reject",
+                    "follow_up_instruction": "State verdict Insufficient and ask for a concrete implementation example."}
+        return {"judgment": "on_topic_vague", "verdict_label": "Insufficient",
+                "reasoning": "Could not extract topic keywords.",
+                "next_action": "cross_examine",
                 "follow_up_instruction": "Probe one level deeper into the implementation."}
 
     hits = sum(1 for kw in unique_kw if kw in a_lower)
@@ -254,6 +339,7 @@ def _heuristic_evaluate(question: str, answer: str, day_info: Optional[Dict[str,
     if hit_ratio < 0.10:
         return {
             "judgment": "off_topic",
+            "verdict_label": "Off-Topic",
             "reasoning": f"Answer contains very few topic-specific terms (hit ratio: {hit_ratio:.2f}). It appears to discuss a different subject than what was asked.",
             "next_action": "call_out_and_reask",
             "follow_up_instruction": (
@@ -262,16 +348,18 @@ def _heuristic_evaluate(question: str, answer: str, day_info: Optional[Dict[str,
                 "then re-ask the original question focusing on the correct topic."
             )
         }
-    elif word_count < 15:
+    if word_count < 15:
         return {
-            "judgment": "on_topic_vague",
-            "reasoning": f"Answer is on-topic but very brief ({word_count} words) -- insufficient detail.",
-            "next_action": "cross_examine",
+            "judgment": "insufficient",
+            "verdict_label": "Insufficient",
+            "reasoning": f"Answer is on-topic but very brief ({word_count} words) — insufficient detail.",
+            "next_action": "reject",
             "follow_up_instruction": "Ask the candidate to expand with concrete technical details and a real implementation example."
         }
     elif hit_ratio < 0.22 or word_count < 40:
         return {
             "judgment": "on_topic_vague",
+            "verdict_label": "Insufficient",
             "reasoning": f"Answer is on-topic but lacks depth (hit ratio: {hit_ratio:.2f}, {word_count} words).",
             "next_action": "cross_examine",
             "follow_up_instruction": "Cross-examine a specific weak point. Ask for a concrete implementation detail, a tradeoff decision, or a failure scenario."
@@ -279,6 +367,7 @@ def _heuristic_evaluate(question: str, answer: str, day_info: Optional[Dict[str,
     else:
         return {
             "judgment": "on_topic_strong",
+            "verdict_label": "Strong",
             "reasoning": f"Answer covers the topic with reasonable specificity (hit ratio: {hit_ratio:.2f}, {word_count} words).",
             "next_action": "probe_deeper",
             "follow_up_instruction": "Acknowledge briefly and probe one level deeper -- ask about edge cases, scaling concerns, or how they validated their implementation."
@@ -306,6 +395,7 @@ def evaluate_answer(
             objectives_text = "\n".join(f"  - {o}" for o in objs)
 
     eval_system = f"""You are a strict technical answer evaluator for an AI curriculum interview.
+Use Behaviorally Anchored Rating Scales (BARS) — judge reasoning quality, not keyword matching.
 
 The question was about: "{topic_name}"
 Relevant tools: {tools_text or 'general AI/ML'}
@@ -314,26 +404,30 @@ Curriculum objectives for this topic:
 
 Your FIRST job is topical relevance — does the answer discuss the SAME SUBJECT as the question?
 If the answer is about a DIFFERENT concept (e.g. the question is about vector databases but the
-answer describes session state management), that is OFF_TOPIC regardless of answer length or quality.
-
-When the answer is off_topic, your follow_up_instruction MUST name the actual mismatch explicitly:
-  e.g. "That answer described session state management, not vector database metadata filtering.
-        Re-ask: in ChromaDB, how do you use the where clause to filter by metadata before
-        the vector similarity search runs?"
+answer describes session state management), that is off_topic regardless of answer length or quality.
 
 Return a JSON object with this EXACT schema:
 {{
-  "judgment": "on_topic_strong | on_topic_vague | off_topic | wrong",
-  "reasoning": "1-2 sentences with specific evidence from the answer — name exactly what subject the answer was about vs what was asked",
-  "next_action": "advance | probe_deeper | call_out_and_reask | cross_examine",
-  "follow_up_instruction": "Specific instruction naming the mismatch and what to re-ask or probe. Never use generic 'need more depth' if the answer is off-topic."
+  "judgment": "on_topic_strong | on_topic_vague | off_topic | wrong | insufficient",
+  "reasoning": "1-2 sentences citing specific evidence — what the answer covered vs what was asked",
+  "next_action": "advance | probe_deeper | call_out_and_reask | cross_examine | reject",
+  "follow_up_instruction": "Specific instruction for the interviewer. Name mismatches explicitly.",
+  "verdict_label": "Strong | Adequate | Insufficient | Off-Topic | Incorrect"
 }}
 
-Rules:
-- "off_topic": Answer is about a DIFFERENT concept. next_action MUST be "call_out_and_reask". follow_up_instruction MUST name what subject the answer was about AND re-state the original question.
-- "wrong": Factually incorrect claims about this topic. next_action MUST be "call_out_and_reask".
-- "on_topic_vague": On-topic but surface-level. next_action MUST be "cross_examine". Name the specific gap.
-- "on_topic_strong": Specific, accurate, addresses the question directly. next_action is "probe_deeper" or "advance".
+Judgment rules (apply in order):
+1. "insufficient": Empty, under ~10 words, "I don't know"/skip/pass, or no evaluable technical content.
+   next_action: "reject". verdict_label: "Insufficient".
+2. "off_topic": Answer discusses a DIFFERENT subject than the question.
+   next_action: "call_out_and_reask". verdict_label: "Off-Topic".
+   follow_up_instruction MUST name what subject the answer was about AND re-state the original question.
+3. "wrong": On-topic but factually incorrect or contradicts known best practices.
+   next_action: "call_out_and_reask". verdict_label: "Incorrect".
+4. "on_topic_vague": On-topic but surface-level — no concrete tools, steps, or tradeoffs.
+   next_action: "cross_examine". verdict_label: "Insufficient".
+   Name the specific gap (e.g. "mentioned embeddings but not similarity metric or dimension choice").
+5. "on_topic_strong": Specific, accurate, names tools/patterns/tradeoffs, addresses the question.
+   next_action: "probe_deeper" or "advance". verdict_label: "Strong" or "Adequate".
 
 Output ONLY valid JSON."""
 
@@ -356,9 +450,18 @@ Output ONLY valid JSON."""
         result = call_llm_for_evaluation(eval_system, eval_messages)
         if result and all(k in result for k in ["judgment", "reasoning", "next_action", "follow_up_instruction"]):
             judgment = result["judgment"]
-            if judgment not in ("on_topic_strong", "on_topic_vague", "off_topic", "wrong"):
+            if judgment not in ("on_topic_strong", "on_topic_vague", "off_topic", "wrong", "insufficient"):
                 judgment = "on_topic_vague"
                 result["judgment"] = judgment
+            if "verdict_label" not in result:
+                verdict_map = {
+                    "on_topic_strong": "Strong",
+                    "on_topic_vague": "Insufficient",
+                    "off_topic": "Off-Topic",
+                    "wrong": "Incorrect",
+                    "insufficient": "Insufficient",
+                }
+                result["verdict_label"] = verdict_map.get(judgment, "Insufficient")
             print(f"[Evaluator] LLM Judgment: {judgment} | Action: {result['next_action']}")
             print(f"[Evaluator] Reasoning: {result['reasoning']}")
             return result
@@ -403,12 +506,14 @@ def build_follow_up_prompt(
         f"\nSpecific instruction: {instruction}"
         f"\n"
         f"\nMANDATORY RULES:"
-        f"\n- OFF_TOPIC or WRONG: Name what the answer was about, then name what was asked. Re-ask the original question. Do NOT advance."
+        f"\n- INSUFFICIENT or REJECT: State verdict 'Insufficient' clearly. Re-ask a narrower question. Do NOT advance."
+        f"\n- OFF_TOPIC or WRONG: Name what the answer was about, then name what was asked. Re-ask. Do NOT advance."
         f"\n- ON_TOPIC_VAGUE: Cross-examine the specific weak point. Stay on Day {cur_day_num}."
         f"\n- ON_TOPIC_STRONG + advance instruction: Move to the next topic now."
         f"\n- ON_TOPIC_STRONG + probe_deeper: Stay on Day {cur_day_num} and ask a deeper question."
         f"\n- NEVER use 'Good answer regarding...' or any echo-prefix."
         f"\n- NEVER advance to a new topic unless explicitly instructed above."
+        f"\n- Always include a clear verdict word (Strong / Insufficient / Off-Topic / Incorrect) when responding to an answer."
         f"\n==========================================\n"
     )
 
@@ -427,14 +532,23 @@ def start_session(session_id: str, candidate: Dict[str, Any]) -> Dict[str, Any]:
     Initializes a new interview session and persists it to SQLite.
     ISSUE 2 FIX: adds current_topic_idx and topic_attempts to track per-topic state.
     """
+    member = candidate.get("member")
+    missions = candidate.get("missions")
+    if not isinstance(member, dict) or not member.get("name"):
+        raise HTTPException(status_code=400, detail="Candidate must include member.name.")
+    if not isinstance(missions, list) or not missions:
+        raise HTTPException(status_code=400, detail="Candidate must include at least one mission.")
+
     print(f"[Session] Starting new session: {session_id}")
     target_days = select_target_days(candidate)
+    if not target_days:
+        raise HTTPException(status_code=400, detail="No interview topics could be derived from the candidate's missions.")
     system_prompt = build_system_prompt(candidate, target_days)
 
     initial_user_prompt = [
         {
             "role": "user",
-            "content": f"The candidate {candidate['member']['name']} has joined the interview. Please welcome them and ask your first technical question about Day {target_days[0]['day']} — {target_days[0]['title']}."
+            "content": f"The candidate {member['name']} has joined the interview. Please welcome them and ask your first technical question about Day {target_days[0]['day']} — {target_days[0]['title']}."
         }
     ]
 
@@ -450,16 +564,17 @@ def start_session(session_id: str, candidate: Dict[str, Any]) -> Dict[str, Any]:
         ],
         "questions_asked": 1,
         "days_covered": {day_num},
-        # ISSUE 2 FIX: topic state machine
         "current_topic_idx": 0,
-        "topic_attempts": 0,       # rejected attempts on current topic
-        "MAX_TOPIC_ATTEMPTS": 2,   # advance after 2 rejections
+        "topic_attempts": 0,
+        "MAX_TOPIC_ATTEMPTS": 2,
+        "topic_results": {},
     }
 
     set_session(session_id, session_data)
     print(f"[Session] Session {session_id} persisted. Topics: {[d['title'] for d in target_days]}")
 
-    return {"reply": llm_res["reply"], "done": False}
+    snap = _session_snapshot(session_data)
+    return {"reply": llm_res["reply"], "done": False, **snap}
 
 
 def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
@@ -470,12 +585,13 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
     """
     session = get_session(session_id)
     if session is None:
-        active = list_sessions()
-        print(f"[ERROR] Session not found: '{session_id}'. Active: {active}.")
+        print(f"[ERROR] Session not found: '{session_id}'.")
         raise HTTPException(
             status_code=404,
-            detail=f"Session '{session_id}' not found. Active IDs: {active}"
+            detail="Interview session not found."
         )
+    if session.get("is_complete"):
+        raise HTTPException(status_code=409, detail="This interview session is already complete.")
 
     candidate_name = session["candidate"]["member"]["name"]
     target_days = session["target_days"]
@@ -484,6 +600,8 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
     # ISSUE 2: read topic state — migrate old sessions that lack these fields
     current_topic_idx = session.get("current_topic_idx", 0)
     topic_attempts    = session.get("topic_attempts", 0)
+    if not target_days:
+        raise HTTPException(status_code=409, detail="Interview session has no remaining topics.")
     current_topic_idx = min(current_topic_idx, len(target_days) - 1)
     current_day_info  = target_days[current_topic_idx]
 
@@ -572,31 +690,54 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
         print(f"[Breeth] search FAILED: {se}")
 
     # ── Evaluate answer ───────────────────────────────────────────────────────
-    if last_question and substantive:
+    if not substantive:
+        evaluation = {
+            "judgment": "insufficient",
+            "reasoning": "Answer was too brief, empty, or indicated the candidate cannot respond.",
+            "next_action": "reject",
+            "verdict_label": "Insufficient",
+            "follow_up_instruction": (
+                f"The answer is insufficient for Day {curr_day_num} ({topic_title}). "
+                "State clearly that the response cannot be evaluated (verdict: Insufficient), "
+                "then re-ask with a narrower, concrete question. Do NOT advance topics."
+            ),
+        }
+    elif last_question:
         evaluation = evaluate_answer(session, last_question, user_message, day_info)
     else:
         evaluation = {
             "judgment": "on_topic_vague",
-            "reasoning": "Answer was too brief.",
+            "reasoning": "No prior question found to evaluate against.",
             "next_action": "cross_examine",
-            "follow_up_instruction": "Ask for a concrete technical detail."
+            "follow_up_instruction": "Ask for a concrete technical detail.",
         }
 
     judgment    = evaluation["judgment"]
     next_action = evaluation["next_action"]
 
+    if "topic_results" not in session:
+        session["topic_results"] = {}
+    session["topic_results"][str(curr_day_num)] = {
+        "judgment": judgment,
+        "verdict_label": evaluation.get("verdict_label", judgment),
+        "reasoning": evaluation.get("reasoning", ""),
+        "attempt": session.get("topic_attempts", 0) + 1,
+        "title": topic_title,
+    }
+
     # ── ISSUE 2: Topic state machine ─────────────────────────────────────────
     # Only advance to next topic when: answer is strong, OR attempts cap reached.
     topic_passed = judgment == "on_topic_strong"
-    topic_cap    = topic_attempts >= MAX_ATTEMPTS
+    topic_cap    = topic_attempts + 1 >= MAX_ATTEMPTS
 
     if topic_passed or topic_cap:
         if topic_cap and not topic_passed:
-            print(f"[Topic SM] Cap reached on Day {curr_day_num} '{topic_title}' after {topic_attempts} rejections — marking as gap and advancing.")
+            completed_attempts = topic_attempts + 1
+            print(f"[Topic SM] Cap reached on Day {curr_day_num} '{topic_title}' after {completed_attempts} rejections — marking as gap and advancing.")
             # Record it as a noted gap in session
             if "topic_gaps" not in session:
                 session["topic_gaps"] = []
-            session["topic_gaps"].append(f"Day {curr_day_num} ({topic_title}): candidate could not answer adequately after {topic_attempts} attempts.")
+            session["topic_gaps"].append(f"Day {curr_day_num} ({topic_title}): candidate could not answer adequately after {completed_attempts} attempts.")
         new_idx = min(current_topic_idx + 1, len(target_days) - 1)
         session["current_topic_idx"] = new_idx
         session["topic_attempts"]    = 0
@@ -624,7 +765,9 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
 
     reply_text     = llm_res.get("reply", "Could you elaborate further on your approach?")
     is_complete    = llm_res.get("is_complete", False)
-    day_covered    = llm_res.get("day_covered")
+    # The model output is untrusted; the state machine is the source of truth
+    # for which curriculum day the generated question covers.
+    day_covered    = target_days[session["current_topic_idx"]]["day"]
     answer_judgment = llm_res.get("answer_judgment") or judgment
 
     print(f"[Session] {session_id} | Turn #{session['questions_asked']+1} | Judgment: {answer_judgment} | Day: {day_covered} | Complete: {is_complete}")
@@ -634,7 +777,7 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
     session["questions_asked"] += 1
     session["messages"].append({"role": "assistant", "content": reply_text})
 
-    # Enforce minimum 8 questions AND 4 days
+    # Enforce minimum 8 questions AND 4 days.
     questions_asked   = session["questions_asked"]
     days_covered_count = len(session["days_covered"])
     if is_complete and (questions_asked < 8 or days_covered_count < 4):
@@ -644,12 +787,51 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
         reply_text += f"\n\nLet me ask you another question to dig deeper into Day {next_day}."
         session["messages"][-1]["content"] = reply_text
 
+    # Do not rely solely on model compliance to end an interview. Once the
+    # agenda's final topic has been completed and minimum requirements are met,
+    # complete the session deterministically.
+    agenda_complete = (
+        (topic_passed or topic_cap)
+        and current_topic_idx == len(target_days) - 1
+        and questions_asked >= 8
+        and days_covered_count >= 4
+    )
+    if agenda_complete:
+        is_complete = True
+        reply_text = f"That concludes this interview session, {candidate_name}. Thank you for your responses."
+        session["messages"][-1]["content"] = reply_text
+
+    session["is_complete"] = is_complete
+
     set_session(session_id, session)
+
+    snap = _session_snapshot(session)
+    eval_payload = {
+        "judgment": judgment,
+        "verdict_label": evaluation.get("verdict_label", judgment),
+        "reasoning": evaluation.get("reasoning", ""),
+        "next_action": next_action,
+    }
 
     if is_complete:
         feedback_obj = generate_feedback_with_retry(session)
-        return {"reply": reply_text, "done": True, "feedback": feedback_obj, "memories": memories_list, "answer_judgment": answer_judgment}
-    return {"reply": reply_text, "done": False, "memories": memories_list, "answer_judgment": answer_judgment}
+        return {
+            "reply": reply_text,
+            "done": True,
+            "feedback": feedback_obj,
+            "memories": memories_list,
+            "answer_judgment": answer_judgment,
+            "evaluation": eval_payload,
+            **snap,
+        }
+    return {
+        "reply": reply_text,
+        "done": False,
+        "memories": memories_list,
+        "answer_judgment": answer_judgment,
+        "evaluation": eval_payload,
+        **snap,
+    }
 
 
 def validate_feedback_shape(res: Any) -> Optional[Dict[str, Any]]:
@@ -677,26 +859,37 @@ def validate_feedback_shape(res: Any) -> Optional[Dict[str, Any]]:
 
 
 def generate_feedback_with_retry(session: Dict[str, Any]) -> Dict[str, Any]:
-    system_prompt = """You are an expert AI Technical Evaluator. Your job is to analyze the conversation history of a technical interview and generate structured feedback.
+    topic_results = session.get("topic_results", {})
+    topic_gaps = session.get("topic_gaps", [])
+    results_summary = json.dumps(topic_results, indent=2) if topic_results else "No per-topic results recorded."
+    gaps_summary = "\n".join(f"- {g}" for g in topic_gaps) if topic_gaps else "None recorded."
+
+    system_prompt = f"""You are an expert AI Technical Evaluator. Analyze the interview conversation and per-topic verdicts to generate structured feedback.
+
+Per-topic evaluation results:
+{results_summary}
+
+Documented topic gaps (could not answer after max attempts):
+{gaps_summary}
 
 Return a JSON object matching this EXACT schema:
-{
-  "summary": "A 2-3 sentence overview of candidate performance, communication style, and technical depth.",
+{{
+  "summary": "A 2-3 sentence overview referencing specific curriculum days and verdicts (Strong/Insufficient/Off-Topic).",
   "strengths": [
-    "Actionable strength 1 (e.g. strong understanding of ChromaDB metadata filtering)",
+    "Actionable strength tied to a specific day/topic where judgment was on_topic_strong",
     "Actionable strength 2"
   ],
   "gaps": [
-    "Actionable gap 1 (e.g. struggled to explain Docker container readiness probes)",
+    "Actionable gap tied to a specific day where judgment was insufficient, off_topic, or wrong",
     "Actionable gap 2"
   ],
   "next": [
-    "Concrete study/practice suggestion 1 tied to specific curriculum days the candidate struggled on or skipped",
-    "Concrete study/practice suggestion 2"
+    "Concrete study suggestion referencing curriculum day numbers and objectives",
+    "Concrete practice suggestion 2"
   ]
-}
+}}
 
-Ensure all arrays contain concise, actionable points. Output ONLY valid JSON."""
+Ensure all arrays contain concise, actionable points grounded in the actual verdicts. Output ONLY valid JSON."""
 
     messages = session["messages"]
 

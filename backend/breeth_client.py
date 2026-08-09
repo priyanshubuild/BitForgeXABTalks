@@ -29,7 +29,7 @@ class BreethClient:
         }
 
         try:
-            response = requests.post(url, json=payload, headers=headers)
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
             if response.status_code == 429:
                 print("Breeth Client: 429 quota_exceeded response received from server. Returning None.")
                 return None
@@ -60,7 +60,7 @@ class BreethClient:
         }
 
         try:
-            response = requests.post(url, json=payload, headers=headers)
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
             if response.status_code == 429:
                 print("Breeth Client: 429 quota_exceeded response received from server. Returning None.")
                 return None

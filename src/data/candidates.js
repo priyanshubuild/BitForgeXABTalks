@@ -1,4 +1,4 @@
-// Full candidate dataset from hackathon-provided candidates.json
+// Full candidate dataset from Vicodathon-provided candidates.json
 export const ALL_CANDIDATES = [
   {
     member: { id: "CAND-001", name: "Sarah Johnson", jobRole: "Senior Data Engineer", yearsExperience: 9, education: "MS Computer Science", status: "COMPLETED" },

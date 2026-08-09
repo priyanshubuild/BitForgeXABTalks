@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import candidatesData from '../../candidates.json';
+import { ALL_CANDIDATES } from '../../src/data/candidates';
 
 const BACKEND_URL = 'http://localhost:8001';
 
 export default function App() {
-  const [candidates] = useState(candidatesData.candidates || []);
+  const [candidates] = useState(ALL_CANDIDATES);
   const [selectedId, setSelectedId] = useState(candidates[0]?.member?.id || '');
   const [sessionId, setSessionId] = useState('');
   const [messages, setMessages] = useState([]);
