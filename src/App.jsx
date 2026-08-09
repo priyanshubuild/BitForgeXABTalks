@@ -10,6 +10,9 @@ import { ALL_CANDIDATES } from './data/candidates';
 const createSessionId = () =>
   globalThis.crypto?.randomUUID?.() ?? `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+const configuredBackendUrl = import.meta.env.VITE_BACKEND_URL?.trim().replace(/\/$/, '');
+const BACKEND_URL = configuredBackendUrl || 'http://localhost:8001';
+
 export default function App() {
   // Navigation: 'landing' | 'select' | 'interview'
   const [page, setPage] = useState('landing');
@@ -18,7 +21,7 @@ export default function App() {
   // Interview state
   const [activeCandidate, setActiveCandidate] = useState(null);
   const [sessionId, setSessionId] = useState(createSessionId);
-  const [backendUrl] = useState('http://localhost:8001');
+  const [backendUrl] = useState(BACKEND_URL);
   const [isBackendOnline, setIsBackendOnline] = useState(false);
   const [messages, setMessages] = useState([]);
   const [targetDays, setTargetDays] = useState([]);

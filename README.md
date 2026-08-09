@@ -74,6 +74,30 @@ npm run dev
 ```
 Open `http://localhost:3000`
 
+### Deploying live AI evaluation
+
+The React site and FastAPI service must both be deployed. `localhost:8001`
+works only during local development; it cannot reach the backend from a
+visitor's browser.
+
+Configure the frontend build environment with the public FastAPI base URL:
+
+```env
+VITE_BACKEND_URL=https://api.your-domain.com
+```
+
+On the backend host, configure the same Gemini key and the deployed frontend
+origin before starting Uvicorn:
+
+```env
+GEMINI_API_KEY=your_key
+CORS_ORIGINS=https://your-frontend-domain.com
+```
+
+Then verify `https://api.your-domain.com/health` returns `{"status":"ok"}`
+and rebuild/redeploy the frontend. Never put `GEMINI_API_KEY` in a
+`VITE_*` variable or commit `.env`.
+
 ### Validation
 ```bash
 python3 -m compileall -q backend

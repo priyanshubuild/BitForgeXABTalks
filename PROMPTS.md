@@ -413,6 +413,22 @@
 
 ---
 
+### Phase 18: Live Deployment API Configuration
+**Prompt:**
+> The deployed portal still runs in simulation. Make the live site use real AI question generation and answer evaluation.
+
+**Files Modified:**
+- `/src/App.jsx` — Reads the backend base URL from `VITE_BACKEND_URL`, with localhost retained only as the local-development fallback
+- `/.env.example` — Documents the frontend build-time backend URL
+- `/README.md` — Adds the required frontend URL, backend CORS, Gemini-key, health-check, and redeployment configuration
+
+**Core Accomplishments:**
+- The frontend no longer hardcodes `http://localhost:8001` for every deployment.
+- Production must set `VITE_BACKEND_URL` to the public FastAPI service before building the frontend.
+- Gemini remains server-side in `GEMINI_API_KEY`; it is never exposed in a browser-visible `VITE_*` variable.
+
+---
+
 ## 🚀 Live Deployment Checklist
 - [x] Public GitHub Repository: `https://github.com/priyanshubuild/BitForgeXABTalks`
 - [x] AI Usage Log: [`PROMPTS.md`](./PROMPTS.md) — This file (unified prompt & development log)
