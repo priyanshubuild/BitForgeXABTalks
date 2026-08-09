@@ -855,6 +855,8 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
         next_topic=next_topic,
     )
     llm_res = call_llm(augmented_system_prompt, session["messages"])
+    if "Offline mode" in llm_res.get("reply", ""):
+    print(f"[WARNING] Turn fell back to offline simulation for session {session_id}")
 
     reply_text     = llm_res.get("reply", "Could you elaborate further on your approach?")
     is_complete    = llm_res.get("is_complete", False)
