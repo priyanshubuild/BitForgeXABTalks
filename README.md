@@ -7,16 +7,18 @@
 
 ## 🌟 What It Does
 
-The AI Interview Agent conducts **personalized, multi-turn technical interviews** based on each candidate's learning journey through the 31-day AI Cohort curriculum. It doesn't ask scripted questions — it adapts.
+The AI Interview Agent conducts **personalized, multi-turn technical interviews** based on each candidate's learning journey through the 31-day AI Cohort curriculum. It doesn't ask scripted questions — it adapts in real-time.
 
 ### Core Capabilities
 - **Curriculum-Aware Questioning** — Targets specific days the candidate passed, skipped, or failed
-- **Adaptive Follow-Ups** — Evaluates every answer for relevance, depth, and correctness before deciding the next move
-- **Topic State Machine** — Only advances topics when the candidate demonstrates mastery or hits a retry cap
-- **Breeth Memory Graph** — Persistent memory layer tracks facts across turns for deeper context
-- **Structured Feedback** — Generates detailed evaluation reports with strengths, gaps, and actionable next steps
-- **Multi-LLM Fallback** — Gemini 2.0 Flash primary → Anthropic Claude fallback → offline simulation
+- **Adaptive Follow-Ups** — Evaluates every answer for topical relevance, depth, and correctness before deciding the next move
+- **Topic State Machine** — Only advances topics when the candidate demonstrates mastery or hits a retry cap (2 attempts max per topic)
+- **Real Answer Evaluation** — Both LLM-powered and heuristic pipelines that can actually **fail** weak, off-topic, or skipped answers
+- **Breeth Memory Graph** — Persistent memory layer tracks candidate facts across turns for deeper context augmentation
+- **Structured Feedback** — Generates detailed evaluation reports with summary, strengths, gaps, and actionable next steps
+- **Multi-LLM Fallback** — Gemini 2.0 Flash → Gemini 1.5 Flash → Anthropic Claude → offline simulation with real evaluation
 - **20 Candidate Profiles** — All hackathon-provided candidates loaded with full mission history
+- **Apple-Pure Design** — Minimal, monochrome dark/light themes with glassmorphism and smooth transitions
 
 ---
 
@@ -26,7 +28,7 @@ The AI Interview Agent conducts **personalized, multi-turn technical interviews*
 ┌─────────────────────────────────────────────────────────────┐
 │                    React + Vite Frontend                     │
 │  Landing Page → Candidate Selection → Interview Dashboard    │
-│  (Dark/Light theme, Markdown rendering, Memory graph panel)  │
+│  (Apple-pure Dark/Light theme, Markdown chat, Score tracker) │
 └──────────────────────────┬──────────────────────────────────┘
                            │ HTTP POST /api/interview
 ┌──────────────────────────▼──────────────────────────────────┐
@@ -83,7 +85,7 @@ Open `http://localhost:3000`
 ### Conversation Turn
 ```json
 { "sessionId": "abc-123", "message": "..." }
-→ { "reply": "...", "done": false, "memories": [...] }
+→ { "reply": "...", "done": false, "answer_judgment": "strong", "memories": [...] }
 ```
 
 ### End Interview
@@ -100,11 +102,11 @@ Open `http://localhost:3000`
 | Conversational technical interview | ✅ |
 | Minimum 8 questions | ✅ Enforced by backend |
 | At least 4 curriculum days covered | ✅ Enforced by backend |
-| Follow-up questions based on responses | ✅ Evaluation pipeline |
+| Follow-up questions based on responses | ✅ LLM evaluation pipeline |
 | Conversation context maintained | ✅ SQLite session persistence |
 | Structured feedback at end | ✅ summary/strengths/gaps/next |
 | HTTP endpoint per technical spec | ✅ POST /api/interview |
-| AI Usage Log | ✅ PROMPTS.md + AI_USAGE_LOG.md |
+| AI Usage Log | ✅ PROMPTS.md |
 
 ---
 
@@ -112,11 +114,41 @@ Open `http://localhost:3000`
 
 | Component | Technology |
 |---|---|
-| **Frontend** | React 18, Vite, Lucide Icons, react-markdown |
+| **Frontend** | React 18, Vite, Lucide Icons, react-markdown, remark-gfm |
 | **Backend** | Python, FastAPI, Pydantic, SQLite |
-| **AI/LLM** | Google Gemini 2.0 Flash (primary), Anthropic Claude (fallback) |
+| **AI/LLM** | Google Gemini 2.0 Flash (primary), Gemini 1.5 Flash, Anthropic Claude (fallback) |
 | **Memory** | Breeth Pro (persistent memory graph) |
-| **Styling** | Vanilla CSS, Glassmorphism, Dark/Light themes |
+| **Styling** | Vanilla CSS, Apple-pure design system, Glassmorphism, Dark/Light themes |
+| **Design** | Inter + JetBrains Mono fonts, monochrome accent palette, CSS custom properties |
+
+---
+
+## 📂 Project Structure
+
+```
+bitforge/
+├── backend/
+│   ├── main.py              # FastAPI server, CORS, routes
+│   ├── interview_engine.py  # Core interview logic & state machine
+│   ├── llm_client.py        # Gemini/Claude/simulation LLM calls
+│   ├── breeth_client.py     # Breeth memory API integration
+│   ├── session_store.py     # SQLite session persistence
+│   └── schemas.py           # Pydantic models
+├── src/
+│   ├── App.jsx              # Main app — 3-page navigation
+│   ├── index.css            # Full design system (Apple-pure)
+│   ├── data/candidates.js   # All 20 candidate profiles
+│   └── components/
+│       ├── LandingPage.jsx      # Hero, features, tech badges
+│       ├── CandidateSelect.jsx  # Searchable 20-candidate grid
+│       ├── Header.jsx           # Compact interview header
+│       ├── CandidateSidebar.jsx # SVG progress rings, live scores
+│       ├── ChatStream.jsx       # Markdown chat with topic hints
+│       └── FeedbackModal.jsx    # Evaluation report modal
+├── curriculum.json          # 31-day AI Cohort curriculum
+├── PROMPTS.md              # AI usage & development log
+└── README.md               # This file
+```
 
 ---
 

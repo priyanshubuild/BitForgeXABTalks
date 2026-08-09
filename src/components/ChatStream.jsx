@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, Bot, User, Award, Lightbulb } from 'lucide-react';
+import { Send, Bot, Award, Lightbulb } from 'lucide-react';
 
 /* Typing animation */
 function TypewriterText({ text, speed = 8, onDone }) {
@@ -28,15 +28,14 @@ function TypewriterText({ text, speed = 8, onDone }) {
   );
 }
 
-/* Markdown renderer components */
 const MD_COMPONENTS = {
   p: ({ children }) => <p style={{ marginBottom: 8 }}>{children}</p>,
-  strong: ({ children }) => <strong style={{ color: 'var(--indigo-hov)', fontWeight: 700 }}>{children}</strong>,
+  strong: ({ children }) => <strong style={{ color: 'var(--text-1)', fontWeight: 600 }}>{children}</strong>,
   em: ({ children }) => <em style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>{children}</em>,
   code: ({ children }) => (
     <code style={{
       background: 'var(--bg-elevated)', padding: '2px 6px', borderRadius: 4,
-      fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--cyan)',
+      fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-2)',
     }}>{children}</code>
   ),
   ul: ({ children }) => <ul style={{ paddingLeft: 18, marginBottom: 6 }}>{children}</ul>,
@@ -44,73 +43,32 @@ const MD_COMPONENTS = {
   li: ({ children }) => <li style={{ marginBottom: 3, fontSize: 13.5 }}>{children}</li>,
 };
 
-/* Contextual topic hints — NOT pre-written answers */
 function getTopicHints(topic) {
   if (!topic) return [];
   const title = (topic.title || '').toLowerCase();
 
   if (title.includes('embedding')) {
-    return [
-      'Think about: vector dimensions, cosine vs dot product similarity',
-      'Consider: how embeddings encode semantic meaning',
-      'Discuss: chunking strategy and its impact on retrieval',
-    ];
+    return ['vector dimensions & similarity metrics', 'chunking strategy impact', 'semantic meaning encoding'];
   }
   if (title.includes('vector') && title.includes('database')) {
-    return [
-      'Think about: indexing strategies (IVF, HNSW)',
-      'Consider: metadata filtering vs pure similarity search',
-      'Discuss: scaling challenges and when to use managed vs self-hosted',
-    ];
+    return ['indexing strategies (IVF, HNSW)', 'metadata filtering vs similarity', 'scaling challenges'];
   }
   if (title.includes('retrieval') || title.includes('matching')) {
-    return [
-      'Think about: hybrid search (keyword + vector)',
-      'Consider: re-ranking and result quality evaluation',
-      'Discuss: query routing between different retrieval methods',
-    ];
+    return ['hybrid search approaches', 're-ranking quality', 'query routing strategies'];
   }
   if (title.includes('prompt')) {
-    return [
-      'Think about: few-shot vs zero-shot approaches',
-      'Consider: output format control and validation',
-      'Discuss: handling hallucination and ambiguity',
-    ];
-  }
-  if (title.includes('function calling') || title.includes('structured')) {
-    return [
-      'Think about: schema design for tool parameters',
-      'Consider: error handling when function calls fail',
-      'Discuss: validation of structured LLM outputs',
-    ];
+    return ['few-shot vs zero-shot', 'output format control', 'hallucination handling'];
   }
   if (title.includes('agent') || title.includes('orchestration')) {
-    return [
-      'Think about: task decomposition and planning',
-      'Consider: agent communication patterns',
-      'Discuss: error recovery and fallback strategies',
-    ];
+    return ['task decomposition', 'agent communication', 'error recovery patterns'];
   }
   if (title.includes('docker') || title.includes('kubernetes') || title.includes('deploy')) {
-    return [
-      'Think about: health checks and readiness probes',
-      'Consider: container resource limits and scaling',
-      'Discuss: CI/CD pipeline and rollback strategy',
-    ];
+    return ['health checks & probes', 'resource limits', 'CI/CD & rollback'];
   }
   if (title.includes('mcp') || title.includes('protocol')) {
-    return [
-      'Think about: standardized tool interfaces',
-      'Consider: cross-client tool reusability',
-      'Discuss: why protocol standardization matters',
-    ];
+    return ['standardized tool interfaces', 'cross-client reusability', 'protocol benefits'];
   }
-
-  return [
-    'Think about: your implementation approach and tradeoffs',
-    'Consider: what worked well and what you\'d change',
-    'Discuss: specific tools, libraries, or patterns you used',
-  ];
+  return ['implementation approach', 'tradeoffs considered', 'tools & patterns used'];
 }
 
 export default function ChatStream({ messages, onSendMessage, isLoading, candidate, isComplete, onShowFeedback, currentTopic }) {
@@ -142,25 +100,25 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
   const hints = getTopicHints(currentTopic);
 
   return (
-    <main style={{
+    <main className="chat-panel" style={{
       flex: 1, display: 'flex', flexDirection: 'column', height: '100%',
-      overflow: 'hidden', background: 'var(--bg-surface)', position: 'relative',
+      overflow: 'hidden', background: 'var(--bg-base)', position: 'relative',
     }}>
       {/* Top bar */}
-      <div className="glass" style={{
-        padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        borderLeft: 'none', borderRight: 'none', borderTop: 'none', borderRadius: 0, flexShrink: 0,
+      <div className="chat-topbar" style={{
+        padding: '8px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        borderBottom: '1px solid var(--border)', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className={`status-dot ${isLoading ? 'loading' : 'online'}`} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>
-            {isLoading ? 'AI formulating question…' : isComplete ? 'Interview completed' : 'Live interview'}
+          <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)' }}>
+            {isLoading ? 'Thinking…' : isComplete ? 'Complete' : 'Live'}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {isComplete && (
             <button className="btn-primary" onClick={onShowFeedback} style={{ fontSize: 11, padding: '5px 14px' }}>
-              <Award size={12} /> View Report
+              <Award size={11} /> Report
             </button>
           )}
           <span className="mono" style={{ color: 'var(--text-3)', fontSize: 10 }}>
@@ -170,25 +128,23 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
       </div>
 
       {/* Messages */}
-      <div style={{
-        flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16,
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.012), transparent)',
+      <div className="chat-messages" style={{
+        flex: 1, overflowY: 'auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 18,
       }}>
         {messages.length === 0 && (
           <div style={{
             margin: 'auto', textAlign: 'center', display: 'flex', flexDirection: 'column',
-            alignItems: 'center', gap: 10, opacity: 0.5,
+            alignItems: 'center', gap: 12, opacity: 0.4,
           }}>
             <div style={{
-              width: 56, height: 56, borderRadius: 'var(--r-xl)',
-              background: 'linear-gradient(135deg, var(--indigo), var(--violet))',
+              width: 48, height: 48, borderRadius: 'var(--r-full)',
+              background: 'var(--text-1)', color: 'var(--bg-base)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 24px var(--indigo-glow)',
             }}>
-              <Bot size={28} color="#fff" />
+              <Bot size={22} />
             </div>
-            <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-1)' }}>Interview Ready</p>
-            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Preparing your evaluation session…</p>
+            <p style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-1)' }}>Interview Ready</p>
+            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Preparing evaluation session…</p>
           </div>
         )}
 
@@ -198,22 +154,22 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
 
           return (
             <div key={i} className="animate-fade-up" style={{
-              display: 'flex', gap: 10, maxWidth: '78%',
+              display: 'flex', gap: 10, maxWidth: '76%',
               alignSelf: isAI ? 'flex-start' : 'flex-end',
               flexDirection: isAI ? 'row' : 'row-reverse',
               animationDelay: `${i * 0.02}s`,
             }}>
               {isAI
-                ? <div className="avatar-ai"><Bot size={16} color="#fff" strokeWidth={2} /></div>
+                ? <div className="avatar-ai"><Bot size={15} strokeWidth={1.8} /></div>
                 : <div className="avatar-user">{initials}</div>
               }
               <div className={isAI ? 'bubble-ai' : 'bubble-user'} style={{ padding: '12px 16px' }}>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
-                  color: isAI ? 'var(--indigo-hov)' : 'var(--text-3)',
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+                  color: 'var(--text-3)',
                   marginBottom: 5, textTransform: 'uppercase',
                 }}>
-                  {isAI ? 'AI Interviewer' : candidate?.member?.name || 'Candidate'}
+                  {isAI ? 'Interviewer' : candidate?.member?.name || 'You'}
                 </div>
                 <div style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--text-1)' }}>
                   {isAI ? (
@@ -231,7 +187,7 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
 
         {isLoading && (
           <div style={{ display: 'flex', gap: 10, alignSelf: 'flex-start' }} className="animate-fade-in">
-            <div className="avatar-ai"><Bot size={16} color="#fff" strokeWidth={2} /></div>
+            <div className="avatar-ai"><Bot size={15} strokeWidth={1.8} /></div>
             <div className="bubble-ai" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <div className="wave-bars"><span /><span /><span /><span /><span /></div>
               <span style={{ fontSize: 11, color: 'var(--text-3)' }}>thinking…</span>
@@ -241,13 +197,13 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
         <div ref={endRef} />
       </div>
 
-      {/* Contextual topic hints (NOT pre-written answers) */}
+      {/* Hints */}
       {!isComplete && currentTopic && hints.length > 0 && (
-        <div style={{ padding: '0 24px 6px', flexShrink: 0 }}>
+        <div className="chat-hints" style={{ padding: '0 28px 6px', flexShrink: 0 }}>
           <div className="pills-strip">
             {hints.map((hint, idx) => (
               <div key={idx} className="hint-pill">
-                <Lightbulb size={9} style={{ flexShrink: 0, display: 'inline', marginRight: 3, color: 'var(--amber)' }} />
+                <Lightbulb size={9} style={{ flexShrink: 0, display: 'inline', marginRight: 2, opacity: 0.5 }} />
                 <span>{hint}</span>
               </div>
             ))}
@@ -255,11 +211,10 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
         </div>
       )}
 
-      {/* Input bar */}
-      <div className="glass" style={{
+      {/* Input */}
+      <div className="chat-composer" style={{
         padding: '12px 20px', display: 'flex', gap: 8,
-        borderLeft: 'none', borderRight: 'none', borderBottom: 'none', borderRadius: 0, flexShrink: 0,
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02))',
+        borderTop: '1px solid var(--border)', flexShrink: 0,
       }}>
         <textarea
           ref={inputRef}
@@ -267,12 +222,14 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isComplete ? 'Interview complete — view your report above.' : 'Type your response… (Enter to send)'}
+          placeholder={isComplete ? 'Interview complete — view your report.' : 'Type your response…'}
           disabled={isComplete || isLoading}
           rows={1}
           style={{ minHeight: 42, maxHeight: 110, lineHeight: 1.5 }}
         />
-        <button className="btn-primary" onClick={handleSubmit} disabled={isComplete || isLoading || !input.trim()} style={{ height: 42, padding: '0 16px', flexShrink: 0 }}>
+        <button className="btn-primary" onClick={handleSubmit}
+          disabled={isComplete || isLoading || !input.trim()}
+          style={{ height: 42, padding: '0 16px', flexShrink: 0, borderRadius: 'var(--r-lg)' }}>
           <Send size={14} />
         </button>
       </div>

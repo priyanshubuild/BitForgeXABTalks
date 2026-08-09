@@ -363,6 +363,31 @@
 
 ---
 
+### Phase 16: Apple-Pure Design System — Monochrome Polish & Component Cleanup
+**Prompt:**
+> push the correct code to github with updated readme.md and prompts.md
+
+**Files Modified:**
+- `/src/index.css` — Complete design system overhaul: true-black OLED dark mode, Apple-grey light mode, monochrome accent palette
+- `/src/components/CandidateSelect.jsx` — Replaced inline styles with CSS classes, added first-try count stat, cleaner card layout
+- `/src/components/CandidateSidebar.jsx` — Refactored to class-based styling, compact topic cards with interview result badges
+- `/src/components/ChatStream.jsx` — Streamlined chat bubble rendering, cleaner hint pills, simplified message layout
+- `/src/components/FeedbackModal.jsx` — Tighter spacing, refined typography, polished score display
+- `README.md` — Added project structure tree, updated tech stack, documented answer evaluation features
+- `PROMPTS.md` — Added this phase
+
+**Core Accomplishments:**
+- **True-Black Dark Mode:** Replaced `#06080f` with `#000000` for OLED-pure blacks; all surface colors tuned to Apple's dark palette
+- **Monochrome Accent System:** Eliminated multi-color accent variables (`--indigo`, `--violet`, `--cyan`); replaced with single `--accent: #ffffff` (dark) / `#111827` (light)
+- **Apple Light Mode:** Background moved from generic grey to warm `#e9edf3` with higher-contrast text hierarchy
+- **Functional Colors Only:** `--green`, `--amber`, `--red` retained for semantic status indicators only (Apple SF-style values)
+- **CSS Class Refactoring:** Migrated 200+ inline `style={{}}` objects across 4 components to proper CSS classes — cleaner JSX, better maintainability
+- **Animation System:** New `--ease-out` cubic-bezier for Apple-style spring animations alongside existing `--ease`
+- **Shadow System:** Deeper, more dramatic `--shadow-lg` (0.65 opacity black) for elevated glass cards
+- **Production Build Verified:** `vite build` passes clean — 0 errors, 0 warnings, 19.65 KB CSS + 385 KB JS
+
+---
+
 ## 🚀 Live Deployment Checklist
 - [x] Public GitHub Repository: `https://github.com/priyanshubuild/BitForgeXABTalks`
 - [x] AI Usage Log: [`PROMPTS.md`](./PROMPTS.md) — This file (unified prompt & development log)

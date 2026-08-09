@@ -1,7 +1,7 @@
 import React from 'react';
-import { BookOpen, Target, CheckCircle, Activity, Clock, XCircle, AlertTriangle, MinusCircle, HelpCircle } from 'lucide-react';
+import { Target, CheckCircle, Activity, Clock, XCircle, AlertTriangle, MinusCircle, HelpCircle } from 'lucide-react';
 
-function CircularProgress({ value, max, size = 52, stroke = 4, color }) {
+function CircularProgress({ value, max, size = 48, stroke = 3 }) {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const pct = Math.min(value / max, 1);
@@ -10,31 +10,30 @@ function CircularProgress({ value, max, size = 52, stroke = 4, color }) {
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
       <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="var(--border)" strokeWidth={stroke} />
-      <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={color} strokeWidth={stroke}
+      <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="var(--text-1)" strokeWidth={stroke}
         strokeDasharray={circumference} strokeDashoffset={offset}
-        strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.8s var(--ease)' }} />
+        strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.8s var(--ease-out)', opacity: 0.8 }} />
     </svg>
   );
 }
 
-function StatRing({ value, max, label, color }) {
+function StatRing({ value, max, label }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
       <div style={{ position: 'relative' }}>
-        <CircularProgress value={value} max={max} color={color} />
+        <CircularProgress value={value} max={max} />
         <div style={{
           position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, fontWeight: 800, color: 'var(--text-1)', fontFamily: 'var(--font-mono)',
+          fontSize: 13, fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)',
         }}>
           {value}
         </div>
       </div>
-      <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      <span style={{ fontSize: 9, fontWeight: 500, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
     </div>
   );
 }
 
-/* Map interview judgment to display config */
 function getJudgmentDisplay(judgment) {
   switch (judgment) {
     case 'strong':
@@ -60,38 +59,49 @@ function getJudgmentDisplay(judgment) {
 
 export default function CandidateSidebar({ candidate, targetDays, questionsAsked, daysCovered, topicResults = {} }) {
   if (!candidate) return null;
-  const { member, missions, signals } = candidate;
-  const passedCount = missions.filter(m => m.passed).length;
-  const skippedCount = missions.filter(m => m.skipped).length;
-  const failedCount = missions.filter(m => m.passed === false && !m.skipped).length;
+  const { member, missions } = candidate;
   const initials = member.name.split(' ').map(n => n[0]).join('');
 
-  const qPct = Math.min(100, (questionsAsked / 8) * 100);
-  const dPct = Math.min(100, ((daysCovered?.size ?? 0) / 4) * 100);
+  const totalMissions = missions.length;
+  const passedMissions = missions.filter(m => m.passed).length;
+  const firstTryMissions = missions.filter(m => m.passed && (m.attempts ?? 1) === 1).length;
+  const skippedMissions = missions.filter(m => m.skipped).length;
 
-  // Count interview results
+  const questionsShown = Math.max(0, (questionsAsked ?? 0) - 1);
+  const daysShown = Math.max(0, (daysCovered?.size ?? 0) - 1);
+  const reviewedShown = Object.keys(topicResults).length;
+
+  const qPct = Math.min(100, (questionsShown / 8) * 100);
+  const dPct = Math.min(100, (daysShown / Math.max(1, Math.min(targetDays.length || 4, 4))) * 100);
+
   const resultValues = Object.values(topicResults);
   const strongCount = resultValues.filter(j => ['strong', 'adequate', 'on_topic_strong'].includes(j)).length;
   const weakCount = resultValues.filter(j => ['vague', 'on_topic_vague'].includes(j)).length;
   const failCount = resultValues.filter(j => ['off_topic', 'wrong', 'skipped', 'too_brief'].includes(j)).length;
 
   return (
-    <aside style={{
-      width: 280, background: 'var(--bg-base)', borderRight: '1px solid var(--border)',
+    <aside className="sidebar-panel" style={{
+      width: 272, background: 'var(--bg-base)', borderRight: '1px solid var(--border)',
       display: 'flex', flexDirection: 'column', overflowY: 'auto', flexShrink: 0,
     }}>
-      {/* Candidate Card */}
-      <div style={{ padding: 18, borderBottom: '1px solid var(--border)', background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))' }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+      {/* Profile Snapshot */}
+      <div style={{ padding: '20px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: 12 }}>
+          Profile Snapshot
+        </div>
+        <p style={{ fontSize: 11, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 14 }}>
+          Loaded from candidates.json. This block summarizes Sarah's historical cohort record, not the current interview session.
+        </p>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 18 }}>
           <div style={{
-            width: 44, height: 44, borderRadius: 'var(--r-lg)',
-            background: 'linear-gradient(135deg, var(--indigo), var(--violet))',
+            width: 42, height: 42, borderRadius: 'var(--r-full)',
+            background: 'var(--text-1)', color: 'var(--bg-base)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0,
+            fontWeight: 700, fontSize: 14, flexShrink: 0,
           }}>{initials}</div>
           <div style={{ minWidth: 0 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{member.name}</h3>
-            <p style={{ fontSize: 11, color: 'var(--indigo-hov)', fontWeight: 600, marginTop: 1 }}>{member.jobRole}</p>
+            <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' }}>{member.name}</h3>
+            <p style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500, marginTop: 1 }}>{member.jobRole}</p>
             <div style={{ display: 'flex', gap: 8, marginTop: 3, fontSize: 10, color: 'var(--text-3)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Clock size={9} /> {member.yearsExperience}yr</span>
               <span>·</span>
@@ -100,81 +110,73 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
           </div>
         </div>
 
-        {/* Circular stats */}
         <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-          <StatRing value={signals.missionsCompleted} max={31} label="Done" color="var(--indigo)" />
-          <StatRing value={signals.missionsFirstTry} max={31} label="1st Try" color="var(--green)" />
-          <StatRing value={signals.commitDays} max={31} label="Active" color="var(--cyan)" />
+          <StatRing value={passedMissions} max={totalMissions || 1} label="Passed" />
+          <StatRing value={firstTryMissions} max={totalMissions || 1} label="1st Try" />
+          <StatRing value={skippedMissions} max={totalMissions || 1} label="Skipped" />
         </div>
       </div>
 
-      {/* Progress */}
-      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-          <Activity size={12} color="var(--indigo)" />
-          <span className="section-label">Interview Progress</span>
+      {/* Live Session */}
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+          <Activity size={11} color="var(--text-3)" />
+          <span className="section-label">Live Session Progress</span>
         </div>
         {[
-          { label: 'Questions', val: questionsAsked, max: 8, pct: qPct, doneColor: 'var(--green)', progressBg: 'linear-gradient(90deg, var(--indigo), var(--violet))' },
-          { label: 'Days Covered', val: daysCovered?.size ?? 0, max: 4, pct: dPct, doneColor: 'var(--green)', progressBg: 'var(--amber)' },
+          { label: 'Questions Asked', val: questionsShown, max: 8, pct: qPct },
+          { label: 'Topics Covered', val: daysShown, max: Math.max(1, Math.min(targetDays.length || 4, 4)), pct: dPct },
+          { label: 'Answers Reviewed', val: reviewedShown, max: 8, pct: Math.min(100, (reviewedShown / 8) * 100) },
         ].map((item, i) => (
-          <div key={i} style={{ marginBottom: i === 0 ? 10 : 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-              <span style={{ color: 'var(--text-2)' }}>{item.label}</span>
-              <span style={{ fontWeight: 700, color: item.val >= item.max ? item.doneColor : 'var(--text-1)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
-                {item.val} / {item.max}
+          <div key={i} style={{ marginBottom: i === 0 ? 12 : 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 5 }}>
+              <span style={{ color: 'var(--text-3)' }}>{item.label}</span>
+              <span style={{ fontWeight: 600, color: item.val >= item.max ? 'var(--green)' : 'var(--text-2)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                {item.val}/{item.max}
               </span>
             </div>
-            <div className="progress-track">
-              <div className="progress-fill" style={{ width: `${item.pct}%`, background: item.val >= item.max ? item.doneColor : item.progressBg }} />
+            <div className="progress-track" style={{ height: 3 }}>
+              <div className="progress-fill" style={{
+                width: `${item.pct}%`,
+                background: item.val >= item.max ? 'var(--green)' : 'var(--text-1)',
+                opacity: item.val >= item.max ? 1 : 0.4,
+              }} />
             </div>
           </div>
         ))}
       </div>
 
-      {/* Evaluation Topics — NOW shows INTERVIEW results, not mission history */}
-      <div style={{ padding: '14px 18px', flex: 1, background: 'rgba(255,255,255,0.005)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-          <Target size={12} color="var(--indigo)" />
-          <span className="section-label">Evaluation Topics</span>
+      {/* Evaluation Topics */}
+      <div style={{ padding: '16px 20px', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+          <Target size={11} color="var(--text-3)" />
+          <span className="section-label">Topics</span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {targetDays.map(td => {
-            const covered = daysCovered?.has(td.day);
             const interviewResult = topicResults[td.day];
             const judgmentInfo = interviewResult
               ? getJudgmentDisplay(interviewResult)
-              : (covered ? { label: 'In Progress', chipClass: 'chip-muted', Icon: HelpCircle, color: 'var(--text-3)' } : null);
+              : { label: 'Pending', chipClass: 'chip-muted', Icon: HelpCircle, color: 'var(--text-3)' };
 
             return (
-              <div key={td.day} className="glass" style={{
-                padding: '9px 11px', borderRadius: 'var(--r-md)',
-                borderColor: interviewResult
-                  ? (['strong', 'adequate', 'on_topic_strong'].includes(interviewResult) ? 'rgba(52,211,153,0.25)' : ['vague', 'on_topic_vague'].includes(interviewResult) ? 'rgba(251,191,36,0.25)' : 'rgba(239,68,68,0.25)')
-                  : 'var(--border)',
+              <div key={td.day} style={{
+                padding: '10px 12px', borderRadius: 'var(--r-md)',
+                border: '1px solid var(--border)',
                 background: interviewResult
-                  ? (['strong', 'adequate', 'on_topic_strong'].includes(interviewResult) ? 'rgba(52,211,153,0.04)' : ['vague', 'on_topic_vague'].includes(interviewResult) ? 'rgba(251,191,36,0.04)' : 'rgba(239,68,68,0.04)')
-                  : 'var(--bg-card)',
+                  ? (['strong', 'adequate', 'on_topic_strong'].includes(interviewResult) ? 'rgba(48,209,88,0.04)' : ['vague', 'on_topic_vague'].includes(interviewResult) ? 'rgba(255,214,10,0.04)' : 'rgba(255,69,58,0.04)')
+                  : 'transparent',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 10, color: 'var(--text-3)' }}>Day {td.day}</div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{td.title}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>Day {td.day}</div>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' }}>{td.title}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                    {judgmentInfo && (
-                      <>
-                        <judgmentInfo.Icon size={12} color={judgmentInfo.color} />
-                        <span className={`chip ${judgmentInfo.chipClass}`} style={{ fontSize: 9, padding: '1px 7px' }}>
-                          {judgmentInfo.label}
-                        </span>
-                      </>
-                    )}
-                    {!judgmentInfo && !covered && (
-                      <span className="chip chip-muted" style={{ fontSize: 9, padding: '1px 7px' }}>
-                        Pending
-                      </span>
-                    )}
+                    <judgmentInfo.Icon size={11} color={judgmentInfo.color} />
+                    <span className={`chip ${judgmentInfo.chipClass}`} style={{ fontSize: 9, padding: '1px 7px' }}>
+                      {judgmentInfo.label}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -183,27 +185,26 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
         </div>
       </div>
 
-      {/* Interview Score Summary */}
+      {/* Score Summary */}
       {resultValues.length > 0 && (
-        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', background: 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <BookOpen size={12} color="var(--indigo)" />
-            <span className="section-label">Interview Score</span>
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)' }}>
+          <span className="section-label" style={{ display: 'block', marginBottom: 8 }}>Score</span>
+          <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text-3)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 2, background: 'var(--green)', display: 'inline-block' }} />
+              {strongCount}
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 2, background: 'var(--amber)', display: 'inline-block' }} />
+              {weakCount}
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 2, background: 'var(--red)', display: 'inline-block' }} />
+              {failCount}
+            </span>
           </div>
-          <div style={{ display: 'flex', gap: 10, fontSize: 10, color: 'var(--text-3)' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ width: 6, height: 6, borderRadius: 2, background: 'var(--green)', display: 'inline-block' }} /> {strongCount} strong
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ width: 6, height: 6, borderRadius: 2, background: 'var(--amber)', display: 'inline-block' }} /> {weakCount} weak
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ width: 6, height: 6, borderRadius: 2, background: 'var(--red)', display: 'inline-block' }} /> {failCount} failed
-            </span>
-          </div>
-          {/* Score bar */}
           {resultValues.length > 0 && (
-            <div style={{ display: 'flex', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: 8, gap: 1 }}>
+            <div style={{ display: 'flex', height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 8, gap: 1 }}>
               {strongCount > 0 && <div style={{ flex: strongCount, background: 'var(--green)', borderRadius: 1 }} />}
               {weakCount > 0 && <div style={{ flex: weakCount, background: 'var(--amber)', borderRadius: 1 }} />}
               {failCount > 0 && <div style={{ flex: failCount, background: 'var(--red)', borderRadius: 1 }} />}
@@ -211,31 +212,6 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
           )}
         </div>
       )}
-
-      {/* Mission heatmap — historical context only */}
-      <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', background: 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-          <BookOpen size={12} color="var(--text-3)" />
-          <span className="section-label" style={{ color: 'var(--text-3)' }}>Mission History</span>
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-          {missions.map((m, i) => (
-            <div key={i} title={`Day ${m.day}: ${m.title}`} style={{
-              width: 7, height: 7, borderRadius: 2,
-              background: m.passed ? 'var(--green)' : m.skipped ? 'var(--text-3)' : 'var(--red)',
-              opacity: 0.5,
-            }} />
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 6, fontSize: 9, color: 'var(--text-3)', opacity: 0.7 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <span style={{ width: 5, height: 5, borderRadius: 1, background: 'var(--green)', display: 'inline-block', opacity: 0.5 }} /> {passedCount} passed
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <span style={{ width: 5, height: 5, borderRadius: 1, background: 'var(--red)', display: 'inline-block', opacity: 0.5 }} /> {failedCount + skippedCount} gaps
-          </span>
-        </div>
-      </div>
     </aside>
   );
 }
