@@ -17,10 +17,17 @@ import json
 import os
 import sqlite3
 import threading
+import tempfile
 from typing import Any, Dict, List, Optional
 
-# DB lives next to this file so relative paths work under any cwd
-_DB_PATH = os.path.join(os.path.dirname(__file__), "sessions.db")
+# Vercel's deployment bundle is read-only; its temporary directory is writable
+# for the lifetime of a warm function instance. Other hosts keep the local DB
+# beside this module unless SESSION_DB_PATH is explicitly configured.
+_DB_PATH = os.getenv("SESSION_DB_PATH") or (
+    os.path.join(tempfile.gettempdir(), "bitforge-sessions.db")
+    if os.getenv("VERCEL")
+    else os.path.join(os.path.dirname(__file__), "sessions.db")
+)
 
 # One lock per process — sqlite3 is not thread-safe for concurrent writes
 _lock = threading.Lock()

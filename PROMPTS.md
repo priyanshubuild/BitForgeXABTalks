@@ -429,6 +429,22 @@
 
 ---
 
+### Phase 19: Same-Origin Vercel Live API
+**Prompt:**
+> The portal is deployed on Vercel. Remove local-only behavior and make the live site use real AI evaluation.
+
+**Files Modified:**
+- `/api/index.py` — Vercel Python Function entrypoint exporting the FastAPI app
+- `/src/App.jsx` — Production API requests default to same-origin `/api`
+- `/backend/session_store.py` — Uses Vercel's writable temporary directory for runtime SQLite state
+
+**Core Accomplishments:**
+- A Vercel deployment serves the React frontend and FastAPI interview endpoints together.
+- No browser request targets `localhost` in production; `VITE_BACKEND_URL` remains available only for an intentionally separate API host.
+- The deployment requires `GEMINI_API_KEY` in Vercel environment variables; `.env` is never deployed as a source of secrets.
+
+---
+
 ## 🚀 Live Deployment Checklist
 - [x] Public GitHub Repository: `https://github.com/priyanshubuild/BitForgeXABTalks`
 - [x] AI Usage Log: [`PROMPTS.md`](./PROMPTS.md) — This file (unified prompt & development log)

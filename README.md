@@ -74,11 +74,29 @@ npm run dev
 ```
 Open `http://localhost:3000`
 
-### Deploying live AI evaluation
+### Deploying live AI evaluation on Vercel
 
-The React site and FastAPI service must both be deployed. `localhost:8001`
-works only during local development; it cannot reach the backend from a
-visitor's browser.
+This repository includes `api/index.py`, which exposes the FastAPI `app` as a
+Vercel Python Function. When the repository is deployed to Vercel, the React
+app calls the same domain at `/api/interview` and `/api/health`; it does not
+use `localhost` in production.
+
+In Vercel Project Settings → Environment Variables, add:
+
+```env
+GEMINI_API_KEY=your_key
+BREETH_API_KEY=your_optional_key
+CORS_ORIGINS=https://vicodathon.priyanshugupta.com
+```
+
+Redeploy after adding the values. Verify live AI API availability at:
+
+```text
+https://vicodathon.priyanshugupta.com/api/health
+```
+
+For a separately hosted backend instead, configure the frontend build
+environment with its public FastAPI base URL:
 
 Configure the frontend build environment with the public FastAPI base URL:
 
@@ -86,7 +104,7 @@ Configure the frontend build environment with the public FastAPI base URL:
 VITE_BACKEND_URL=https://api.your-domain.com
 ```
 
-On the backend host, configure the same Gemini key and the deployed frontend
+On that backend host, configure the same Gemini key and deployed frontend
 origin before starting Uvicorn:
 
 ```env
@@ -94,7 +112,7 @@ GEMINI_API_KEY=your_key
 CORS_ORIGINS=https://your-frontend-domain.com
 ```
 
-Then verify `https://api.your-domain.com/health` returns `{"status":"ok"}`
+Then verify `https://api.your-domain.com/api/health` returns `{"status":"ok"}`
 and rebuild/redeploy the frontend. Never put `GEMINI_API_KEY` in a
 `VITE_*` variable or commit `.env`.
 

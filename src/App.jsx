@@ -11,7 +11,9 @@ const createSessionId = () =>
   globalThis.crypto?.randomUUID?.() ?? `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 const configuredBackendUrl = import.meta.env.VITE_BACKEND_URL?.trim().replace(/\/$/, '');
-const BACKEND_URL = configuredBackendUrl || 'http://localhost:8001';
+// On Vercel, the FastAPI function is deployed at the same origin under /api.
+// A separate backend host can still be supplied explicitly at build time.
+const BACKEND_URL = configuredBackendUrl || (import.meta.env.DEV ? 'http://localhost:8001' : '');
 
 export default function App() {
   // Navigation: 'landing' | 'select' | 'interview'
@@ -51,7 +53,7 @@ export default function App() {
   // Health-check
   useEffect(() => {
     const check = async () => {
-      try { const r = await fetch(`${backendUrl}/health`); setIsBackendOnline(r.ok); }
+      try { const r = await fetch(`${backendUrl}/api/health`); setIsBackendOnline(r.ok); }
       catch { setIsBackendOnline(false); }
     };
     check();
