@@ -53,26 +53,28 @@ def call_llm(system_prompt: str, messages: List[Dict[str, str]]) -> Dict[str, An
     """
     Tries Gemini first (primary + 1.5-flash fallback), then simulation.
     """
+    import time
     genai = get_gemini_client()
     if genai:
         for model_name in [GEMINI_MODEL, "gemini-1.5-flash"]:
-            try:
-                raw = _call_gemini(genai, model_name, system_prompt, messages, 1400, 0.75)
-                parsed = parse_llm_json(raw)
-                if parsed is None:
-                    return {"reply": raw, "is_complete": False, "day_covered": None, "feedback": None}
-                if isinstance(parsed, dict) and isinstance(parsed.get("reply"), str):
-                    return parsed
-                print(f"Gemini returned an invalid interview schema ({model_name}); trying fallback.")
-                continue
-            except Exception as e:
-                print(f"Gemini API Exception ({model_name}): {e}")
-                if "quota" in str(e).lower() or "429" in str(e):
-                    continue   # Try next Gemini model
-                break
+            for attempt in range(2):
+                try:
+                    raw = _call_gemini(genai, model_name, system_prompt, messages, 1400, 0.75)
+                    parsed = parse_llm_json(raw)
+                    if parsed is None:
+                        return {"reply": raw, "is_complete": False, "day_covered": None, "feedback": None}
+                    if isinstance(parsed, dict) and isinstance(parsed.get("reply"), str):
+                        return parsed
+                    print(f"Gemini returned an invalid interview schema ({model_name}); trying fallback.")
+                    break
+                except Exception as e:
+                    print(f"Gemini API Exception ({model_name}, attempt {attempt+1}): {e}")
+                    if "quota" in str(e).lower() or "429" in str(e):
+                        time.sleep(2)
+                        continue
+                    break
 
     return simulate_llm_response(system_prompt, messages)
-
 
 # -- Evaluation-specific LLM Call (NO simulation fallback) --------------------
 def call_llm_for_evaluation(system_prompt: str, messages: List[Dict[str, str]]) -> Optional[Dict[str, Any]]:
@@ -299,10 +301,11 @@ def _fallback_evaluate_answer(answer: str, day_title: str) -> Dict[str, str]:
             "prefix": "",
         }
 
-    # Detailed answer
+    # Detailed answer — offline heuristic cannot verify factual correctness,
+    # so cap at "adequate" and flag it for human review instead of auto-passing.
     return {
-        "judgment": "strong",
-        "prefix": "",
+        "judgment": "adequate",
+        "prefix": "⚠️ Graded offline (keyword/length check only — not verified for correctness). ",
     }
 
 
