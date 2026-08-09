@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import requests
 from typing import List, Dict, Any, Optional, Tuple
 from dotenv import load_dotenv, find_dotenv
 
@@ -23,38 +24,28 @@ def get_gemini_client():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         print("[LLM] WARNING: GEMINI_API_KEY is not set. AI features will be disabled (simulation mode).")
-        print("[LLM] Set GEMINI_API_KEY in your Vercel dashboard or .env file.")
         return None
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        print(f"[LLM] Gemini client initialized with model: {GEMINI_MODEL}")
-        return genai
-    except Exception as e:
-        print(f"[LLM] WARNING: Could not initialize Gemini client: {e}")
-        return None
+    print(f"[LLM] Gemini REST client ready with model: {GEMINI_MODEL}")
+    return api_key
 
 
 def _call_gemini(genai, model_name: str, system_prompt: str, messages: List[Dict], max_tokens: int, temperature: float):
-    """Helper: run one Gemini model call. Returns raw text or raises."""
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        system_instruction=system_prompt,
-        generation_config={
-            "temperature": temperature,
-            "max_output_tokens": max_tokens,
-        }
-    )
-    history = []
-    for msg in messages[:-1]:
-        history.append({
-            "role": "user" if msg["role"] == "user" else "model",
-            "parts": [msg["content"]]
-        })
-    last_msg = messages[-1]["content"] if messages else "Begin."
-    chat = model.start_chat(history=history)
-    response = chat.send_message(last_msg)
-    return response.text.strip()
+    """Helper: run one Gemini model call via REST API. Returns raw text or raises."""
+    api_key = genai  # now holds the API key string
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+    contents = [
+        {"role": "user" if m["role"] == "user" else "model", "parts": [{"text": m["content"]}]}
+        for m in messages
+    ]
+    payload = {
+        "contents": contents,
+        "systemInstruction": {"parts": [{"text": system_prompt}]},
+        "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens},
+    }
+    resp = requests.post(url, json=payload, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+    return data["candidates"][0]["content"]["parts"][0]["text"].strip()
 
 
 # -- Main LLM Call (with simulation fallback) ---------------------------------
