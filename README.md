@@ -126,6 +126,14 @@ Then verify `https://api.your-domain.com/api/health` returns `{"status":"ok"}`
 and rebuild/redeploy the frontend. Never put `GEMINI_API_KEY` in a
 `VITE_*` variable or commit `.env`.
 
+**Troubleshooting: `/api/health` returns 500 (FUNCTION_INVOCATION_FAILED)**
+
+This backend calls Gemini directly via its REST API (`requests`), not the
+`google-generativeai` SDK — that SDK depends on `grpc` native binaries that
+are incompatible with Vercel's serverless Python runtime and will crash the
+function on import. If you see this error, confirm `backend/__init__.py`
+exists and that `requirements.txt` does not include `google-generativeai`.
+
 ### Validation
 ```bash
 python3 -m compileall -q backend
@@ -189,7 +197,7 @@ UI fallback follows the same retry behavior.
 |---|---|
 | **Frontend** | React 18, Vite, Lucide Icons, react-markdown, remark-gfm |
 | **Backend** | Python, FastAPI, Pydantic, SQLite |
-| **AI/LLM** | Google Gemini 2.0 Flash (primary), Gemini 1.5 Flash, offline simulation fallback |
+| **AI/LLM** | Google Gemini 2.0 Flash (primary, via REST API), Gemini 1.5 Flash, offline simulation fallback |
 | **Memory** | Breeth Pro (persistent memory graph) |
 | **Styling** | Vanilla CSS, Apple-pure design system, Glassmorphism, Dark/Light themes |
 | **Design** | Inter + JetBrains Mono fonts, monochrome accent palette, CSS custom properties |
@@ -203,6 +211,7 @@ bitforge/
 ├── api/
 │   └── index.py             # Vercel Python Function entrypoint
 ├── backend/
+│   ├── __init__.py          # Package marker (required for Vercel import resolution)
 │   ├── main.py              # FastAPI server, CORS, routes
 │   ├── interview_engine.py  # Core interview logic & state machine
 │   ├── llm_client.py        # Gemini/simulation LLM calls
