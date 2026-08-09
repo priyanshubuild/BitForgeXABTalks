@@ -478,6 +478,40 @@
 
 ---
 
+
+
+### Phase 21: Vercel Runtime Crash Fix — Gemini SDK Incompatibility & Security Cleanup
+**Prompt:**
+> this is my site, when i deploy it, it works on simulation mode not using ai things tell me how i can fix this issue?
+
+**Root Cause Identified:**
+- `backend/` had no `__init__.py`, which broke Python package resolution on Vercel's runtime, causing `/api/health` to return `500 FUNCTION_INVOCATION_FAILED` on every request instead of a normal response
+- The `google-generativeai` SDK depends on `grpc` native binaries that are incompatible with Vercel's serverless Python 3.12 runtime, causing the import to crash at request time even though local development and the build step succeeded
+- `GEMINI_API_KEY` was briefly committed in plaintext to `.env.example`, triggering GitHub's push protection and requiring key rotation
+- CORS middleware was hardcoded to `allow_origins=["*"]`, ignoring the already-built `CORS_ORIGINS`-based allowlist
+
+**Fix Applied:**
+- Added `backend/__init__.py` to restore correct package imports on Vercel
+- Rewrote `backend/llm_client.py` to call the Gemini REST API directly via `requests` instead of the `google-generativeai` SDK, removing the crash-prone `grpc` dependency entirely
+- Removed `google-generativeai` from `requirements.txt`
+- Scrubbed the committed API key from `.env.example`, rotated the exposed Gemini key, and confirmed the real key lives only in Vercel's Environment Variables dashboard
+- Fixed `CORSMiddleware` to use the existing `allowed_origins` list instead of a wildcard
+
+**Files Modified:**
+- `/backend/__init__.py` *(new)* — Empty package marker fixing Vercel's Python import resolution
+- `/backend/llm_client.py` — `get_gemini_client()` now returns the raw API key string; `_call_gemini()` rewritten to POST directly to `generativelanguage.googleapis.com` via `requests`
+- `/requirements.txt` — Removed `google-generativeai`
+- `/backend/main.py` — `allow_origins=allowed_origins` instead of `["*"]`
+- `/.env.example` — Removed committed secret, restored placeholder value
+
+**Core Accomplishments:**
+- **Root Cause Fixed:** `/api/health` and `/api/interview` no longer crash on Vercel; the function boots cleanly because it no longer imports `grpc`-backed native extensions unsupported in that runtime
+- **Simulation Mode Resolved:** With the crash fixed and a valid `AIzaSy...` Gemini key set in Vercel, `ai_enabled` correctly reports `true` and the live site uses real Gemini responses instead of the offline fallback
+- **Security Hardened:** Exposed key rotated; CORS now enforces the intended origin allowlist instead of accepting all origins with credentials
+- **Diagnostic Process:** Used Vercel Runtime Logs and local import simulation (`VERCEL=1 python3 -c "from backend.main import app"`) to isolate the crash to the SDK import rather than guessing at environment variable issues
+
+---
+
 ## 🚀 Live Deployment Checklist
 - [x] Public GitHub Repository: `https://github.com/priyanshubuild/BitForgeXABTalks`
 - [x] AI Usage Log: [`PROMPTS.md`](./PROMPTS.md) — This file (unified prompt & development log)
@@ -497,3 +531,5 @@
 - **Antigravity** (Google DeepMind) — Primary AI coding assistant for all development phases
 - **Google Gemini 2.0 Flash** — Primary LLM for interview question generation and answer evaluation
 - **Breeth API** — Memory graph for candidate knowledge persistence across interview turns
+
+
