@@ -90,6 +90,8 @@ def interview_endpoint(payload: Dict[str, Any] = Body(...)):
     try:
         if "candidate" in payload:
             candidate_data = payload["candidate"]
+            if not isinstance(candidate_data, dict):
+                raise HTTPException(status_code=400, detail="candidate must be an object.")
             result = start_session(session_id, candidate_data)
             return {
                 "reply": result.get("reply", "Welcome. Let's begin your interview."),
@@ -106,6 +108,8 @@ def interview_endpoint(payload: Dict[str, Any] = Body(...)):
 
         if "message" in payload:
             message_text = payload["message"]
+            if not isinstance(message_text, str) or not message_text.strip():
+                raise HTTPException(status_code=400, detail="message must be a non-empty string.")
             result = process_turn(session_id, message_text)
             return {
                 "reply": result.get("reply", "Let's continue the interview."),

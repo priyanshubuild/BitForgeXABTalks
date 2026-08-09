@@ -55,7 +55,12 @@ def call_llm(system_prompt: str, messages: List[Dict[str, str]]) -> Dict[str, An
             try:
                 raw = _call_gemini(genai, model_name, system_prompt, messages, 1400, 0.75)
                 parsed = parse_llm_json(raw)
-                return parsed if parsed else {"reply": raw, "is_complete": False, "day_covered": None, "feedback": None}
+                if parsed is None:
+                    return {"reply": raw, "is_complete": False, "day_covered": None, "feedback": None}
+                if isinstance(parsed, dict) and isinstance(parsed.get("reply"), str):
+                    return parsed
+                print(f"Gemini returned an invalid interview schema ({model_name}); trying fallback.")
+                continue
             except Exception as e:
                 print(f"Gemini API Exception ({model_name}): {e}")
                 if "quota" in str(e).lower() or "429" in str(e):
@@ -80,7 +85,10 @@ def call_llm_for_evaluation(system_prompt: str, messages: List[Dict[str, str]]) 
             try:
                 raw = _call_gemini(genai, model_name, system_prompt, messages, 600, 0.3)
                 parsed = parse_llm_json(raw)
-                return parsed  # May be None if parse fails -- that's OK
+                if isinstance(parsed, dict):
+                    return parsed
+                print(f"Gemini returned invalid evaluation JSON ({model_name}); trying fallback.")
+                continue
             except Exception as e:
                 print(f"Gemini eval exception ({model_name}): {e}")
                 if "quota" in str(e).lower() or "429" in str(e):

@@ -20,7 +20,7 @@ import sys
 # Ensure project root is in path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from backend.interview_engine import evaluate_answer
+from backend.interview_engine import evaluate_answer, normalize_evaluation
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test 1: Off-topic answer should be flagged
@@ -69,6 +69,20 @@ ON_TOPIC_ANSWER = (
 def run_tests():
     passed = 0
     failed = 0
+
+    # A model must never be able to pair an off-topic verdict with an action
+    # that silently advances the state machine.
+    normalized = normalize_evaluation({
+        "judgment": "off_topic",
+        "next_action": "advance",
+        "reasoning": "The response addressed a different subject.",
+        "follow_up_instruction": "Re-ask the original question.",
+    })
+    if normalized["next_action"] == "call_out_and_reask":
+        passed += 1
+    else:
+        print("❌ FAIL: Invalid evaluator action was not normalized.")
+        failed += 1
 
     print("\n" + "="*70)
     print("BUG 2 EVALUATOR ASSERTION TEST")

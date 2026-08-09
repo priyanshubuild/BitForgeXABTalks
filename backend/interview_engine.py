@@ -1,6 +1,8 @@
 import json
 import os
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from typing import Dict, Any, List, Set, Tuple, Optional
 from fastapi import HTTPException
 from backend.llm_client import call_llm, call_llm_for_evaluation
@@ -9,6 +11,31 @@ from backend.session_store import get_session, set_session, delete_session, list
 
 # Initialize Breeth memory layer
 breeth_client = BreethClient()
+memory_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="breeth-memory")
+# Keep optional memory enrichment bounded.  A slow third-party memory service
+# must never build an unbounded queue or delay the interview state machine.
+memory_slots = threading.BoundedSemaphore(8)
+
+
+def _submit_memory_task(fn, *args, **kwargs):
+    """Submit best-effort memory work, or drop it when memory is saturated."""
+    if not breeth_client.api_key:
+        return None
+    if not memory_slots.acquire(blocking=False):
+        print("[Breeth] Memory queue is full; skipping optional enrichment.")
+        return None
+
+    def _run():
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            memory_slots.release()
+
+    try:
+        return memory_executor.submit(_run)
+    except RuntimeError:
+        memory_slots.release()
+        return None
 
 def is_substantive_answer(answer: str) -> bool:
     """
@@ -185,6 +212,44 @@ def _session_snapshot(session: Dict[str, Any]) -> Dict[str, Any]:
         "topic_results": topic_results,
         "questions_asked": session.get("questions_asked", 0),
         "days_covered": sorted(session.get("days_covered", set())),
+    }
+
+
+def normalize_evaluation(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize model output before it can affect topic progression."""
+    judgment = result.get("judgment")
+    if judgment not in {"on_topic_strong", "on_topic_vague", "off_topic", "wrong", "insufficient"}:
+        judgment = "on_topic_vague"
+
+    allowed_actions = {
+        "on_topic_strong": {"advance", "probe_deeper"},
+        "on_topic_vague": {"cross_examine"},
+        "off_topic": {"call_out_and_reask"},
+        "wrong": {"call_out_and_reask"},
+        "insufficient": {"reject"},
+    }
+    default_actions = {
+        "on_topic_strong": "probe_deeper",
+        "on_topic_vague": "cross_examine",
+        "off_topic": "call_out_and_reask",
+        "wrong": "call_out_and_reask",
+        "insufficient": "reject",
+    }
+    next_action = result.get("next_action")
+    if next_action not in allowed_actions[judgment]:
+        next_action = default_actions[judgment]
+
+    labels = {
+        "on_topic_strong": "Strong", "on_topic_vague": "Insufficient",
+        "off_topic": "Off-Topic", "wrong": "Incorrect", "insufficient": "Insufficient",
+    }
+    return {
+        **result,
+        "judgment": judgment,
+        "next_action": next_action,
+        "reasoning": str(result.get("reasoning") or "No evaluator reasoning was returned."),
+        "follow_up_instruction": str(result.get("follow_up_instruction") or "Ask a focused follow-up on the current topic."),
+        "verdict_label": str(result.get("verdict_label") or labels[judgment]),
     }
 
 
@@ -449,19 +514,8 @@ Output ONLY valid JSON."""
     try:
         result = call_llm_for_evaluation(eval_system, eval_messages)
         if result and all(k in result for k in ["judgment", "reasoning", "next_action", "follow_up_instruction"]):
+            result = normalize_evaluation(result)
             judgment = result["judgment"]
-            if judgment not in ("on_topic_strong", "on_topic_vague", "off_topic", "wrong", "insufficient"):
-                judgment = "on_topic_vague"
-                result["judgment"] = judgment
-            if "verdict_label" not in result:
-                verdict_map = {
-                    "on_topic_strong": "Strong",
-                    "on_topic_vague": "Insufficient",
-                    "off_topic": "Off-Topic",
-                    "wrong": "Incorrect",
-                    "insufficient": "Insufficient",
-                }
-                result["verdict_label"] = verdict_map.get(judgment, "Insufficient")
             print(f"[Evaluator] LLM Judgment: {judgment} | Action: {result['next_action']}")
             print(f"[Evaluator] Reasoning: {result['reasoning']}")
             return result
@@ -477,6 +531,8 @@ def build_follow_up_prompt(
     session: Dict[str, Any],
     evaluation: Dict[str, Any],
     retrieved_facts: List[str],
+    should_advance: bool = False,
+    next_topic: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Builds augmented system prompt injecting evaluator judgment + current topic.
@@ -496,6 +552,22 @@ def build_follow_up_prompt(
     cur_day_num       = cur_day.get("day", "?")
     cur_day_title     = cur_day.get("title", "current topic")
 
+    if should_advance and next_topic:
+        transition_rule = (
+            f"\n- The current topic is complete. Ask a fresh question for Day "
+            f"{next_topic.get('day')} — {next_topic.get('title')}."
+        )
+    elif should_advance:
+        transition_rule = "\n- The current topic is complete. Conclude only if all interview minimums are met."
+    else:
+        transition_rule = (
+            f"\n- INSUFFICIENT or REJECT: State verdict 'Insufficient' clearly. Re-ask a narrower question. Do NOT advance."
+            f"\n- OFF_TOPIC or WRONG: Name what the answer was about, then name what was asked. Re-ask. Do NOT advance."
+            f"\n- ON_TOPIC_VAGUE: Cross-examine the specific weak point. Stay on Day {cur_day_num}."
+            f"\n- ON_TOPIC_STRONG + advance instruction: Move to the next topic now."
+            f"\n- ON_TOPIC_STRONG + probe_deeper: Stay on Day {cur_day_num} and ask a deeper question."
+        )
+
     evaluation_block = (
         f"\n=== EVALUATOR JUDGMENT — FOLLOW EXACTLY ==="
         f"\nCurrent topic being tested: Day {cur_day_num} — {cur_day_title}"
@@ -506,11 +578,7 @@ def build_follow_up_prompt(
         f"\nSpecific instruction: {instruction}"
         f"\n"
         f"\nMANDATORY RULES:"
-        f"\n- INSUFFICIENT or REJECT: State verdict 'Insufficient' clearly. Re-ask a narrower question. Do NOT advance."
-        f"\n- OFF_TOPIC or WRONG: Name what the answer was about, then name what was asked. Re-ask. Do NOT advance."
-        f"\n- ON_TOPIC_VAGUE: Cross-examine the specific weak point. Stay on Day {cur_day_num}."
-        f"\n- ON_TOPIC_STRONG + advance instruction: Move to the next topic now."
-        f"\n- ON_TOPIC_STRONG + probe_deeper: Stay on Day {cur_day_num} and ask a deeper question."
+        f"{transition_rule}"
         f"\n- NEVER use 'Good answer regarding...' or any echo-prefix."
         f"\n- NEVER advance to a new topic unless explicitly instructed above."
         f"\n- Always include a clear verdict word (Strong / Insufficient / Off-Topic / Incorrect) when responding to an answer."
@@ -538,6 +606,14 @@ def start_session(session_id: str, candidate: Dict[str, Any]) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail="Candidate must include member.name.")
     if not isinstance(missions, list) or not missions:
         raise HTTPException(status_code=400, detail="Candidate must include at least one mission.")
+    if (
+        any(not isinstance(mission, dict) or not isinstance(mission.get("day"), int) for mission in missions)
+        or len({mission["day"] for mission in missions}) < 4
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Candidate must include at least four missions with integer day values.",
+        )
 
     print(f"[Session] Starting new session: {session_id}")
     target_days = select_target_days(candidate)
@@ -553,7 +629,9 @@ def start_session(session_id: str, candidate: Dict[str, Any]) -> Dict[str, Any]:
     ]
 
     llm_res = call_llm(system_prompt, initial_user_prompt)
-    day_num = llm_res.get("day_covered") or (target_days[0]["day"] if target_days else 1)
+    # The first question is explicitly requested for the first target topic;
+    # do not let an untrusted model field distort curriculum coverage.
+    day_num = target_days[0]["day"]
 
     session_data = {
         "candidate": candidate,
@@ -563,7 +641,8 @@ def start_session(session_id: str, candidate: Dict[str, Any]) -> Dict[str, Any]:
             {"role": "assistant", "content": llm_res["reply"]}
         ],
         "questions_asked": 1,
-        "days_covered": {day_num},
+        # A day becomes covered after an answer is evaluated, not when asked.
+        "days_covered": set(),
         "current_topic_idx": 0,
         "topic_attempts": 0,
         "MAX_TOPIC_ATTEMPTS": 2,
@@ -635,19 +714,14 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
         f"Candidate Answer: {user_message}"
     )
     substantive = is_substantive_answer(user_message)
-    try:
-        print(f"[Breeth] Writing episode for {day_topic_str}, group={session_id}")
-        res_ep = breeth_client.write_episode(
-            content=episode_content, group_id=session_id, extract_intent=substantive
-        )
-        if res_ep:
-            print(f"[Breeth] Episode written: {res_ep.get('episode_name')} | "
-                  f"entities={res_ep.get('extracted',{}).get('entities',0)} "
-                  f"edges={res_ep.get('extracted',{}).get('edges',0)}")
-        else:
-            print("[Breeth] write_episode returned None.")
-    except Exception as be:
-        print(f"[Breeth] write_episode FAILED: {be}")
+    # Memory enrichment must not delay an interview answer.  Persist this
+    # exchange in the background and use search results only when available.
+    _submit_memory_task(
+        breeth_client.write_episode,
+        content=episode_content,
+        group_id=session_id,
+        extract_intent=substantive,
+    )
 
     session["messages"].append({"role": "user", "content": user_message})
 
@@ -657,9 +731,16 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
     retrieved_facts: List[str] = []
     memories_list:   List[Dict] = []
     search_query = f"{candidate_name} AI interview"
+    search_future = _submit_memory_task(
+        breeth_client.search, query=search_query, group_id=session_id, limit=8
+    )
     try:
-        print(f"[Breeth] Searching memories: '{search_query}' group={session_id}")
-        search_res = breeth_client.search(query=search_query, group_id=session_id, limit=8)
+        if search_future is None:
+            print("[Breeth] Memory enrichment unavailable; continuing without memory context.")
+            raise TimeoutError
+        # A short wait lets healthy memory responses enrich the next prompt,
+        # while a slow provider cannot block the interview.
+        search_res = search_future.result(timeout=0.5)
         if search_res and isinstance(search_res, dict):
             edges = search_res.get("edges") or []
             print(f"[Breeth] Search returned {len(edges)} edges")
@@ -686,6 +767,8 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
                 })
         else:
             print("[Breeth] Search returned no results yet (async lag expected on first turns).")
+    except TimeoutError:
+        print("[Breeth] Search is unavailable or still running; continuing without memory context.")
     except Exception as se:
         print(f"[Breeth] search FAILED: {se}")
 
@@ -726,72 +809,88 @@ def process_turn(session_id: str, user_message: str) -> Dict[str, Any]:
     }
 
     # ── ISSUE 2: Topic state machine ─────────────────────────────────────────
-    # Only advance to next topic when: answer is strong, OR attempts cap reached.
-    topic_passed = judgment == "on_topic_strong"
-    topic_cap    = topic_attempts + 1 >= MAX_ATTEMPTS
+    # The evaluator controls whether a strong answer advances or receives a
+    # deeper follow-up. The per-topic cap prevents any topic from looping.
+    topic_passed = judgment == "on_topic_strong" and next_action == "advance"
+    topic_cap = topic_attempts + 1 >= MAX_ATTEMPTS
+    should_advance = topic_passed or topic_cap
+    next_topic_idx = current_topic_idx
+    next_topic_attempts = topic_attempts + 1
 
-    if topic_passed or topic_cap:
-        if topic_cap and not topic_passed:
+    if should_advance:
+        if topic_cap and judgment != "on_topic_strong":
             completed_attempts = topic_attempts + 1
             print(f"[Topic SM] Cap reached on Day {curr_day_num} '{topic_title}' after {completed_attempts} rejections — marking as gap and advancing.")
             # Record it as a noted gap in session
             if "topic_gaps" not in session:
                 session["topic_gaps"] = []
             session["topic_gaps"].append(f"Day {curr_day_num} ({topic_title}): candidate could not answer adequately after {completed_attempts} attempts.")
-        new_idx = min(current_topic_idx + 1, len(target_days) - 1)
-        session["current_topic_idx"] = new_idx
-        session["topic_attempts"]    = 0
-        print(f"[Topic SM] Advancing idx {current_topic_idx} -> {new_idx} | passed={topic_passed} cap={topic_cap}")
+        next_topic_idx = min(current_topic_idx + 1, len(target_days) - 1)
+        next_topic_attempts = 0
+        print(f"[Topic SM] Advancing idx {current_topic_idx} -> {next_topic_idx} | passed={topic_passed} cap={topic_cap}")
         # Tell the follow-up prompt to move to the next topic
-        if new_idx > current_topic_idx:
-            next_td = target_days[new_idx]
+        if next_topic_idx > current_topic_idx:
+            next_td = target_days[next_topic_idx]
             evaluation["follow_up_instruction"] += (
                 f" Now advance to the NEXT topic: Day {next_td['day']} — {next_td['title']}. "
                 f"Ask a fresh question about this new topic."
             )
     else:
         # Stay on current topic — increment attempt counter
-        session["topic_attempts"] = topic_attempts + 1
-        print(f"[Topic SM] Staying on Day {curr_day_num} '{topic_title}' (attempt {session['topic_attempts']}/{MAX_ATTEMPTS}) judgment={judgment}")
+        print(f"[Topic SM] Staying on Day {curr_day_num} '{topic_title}' (attempt {next_topic_attempts}/{MAX_ATTEMPTS}) judgment={judgment}")
         # Reinforce: the follow-up MUST stay on this topic
         evaluation["follow_up_instruction"] = (
             f"STAY ON Day {curr_day_num} ({topic_title}). "
             + evaluation["follow_up_instruction"]
         )
 
-    # ── Build augmented prompt + call LLM ────────────────────────────────────
-    augmented_system_prompt = build_follow_up_prompt(session, evaluation, retrieved_facts)
+    # Build the follow-up prompt before committing the state transition, so its
+    # evaluator context always names the topic that was actually answered.
+    next_topic = target_days[next_topic_idx] if next_topic_idx > current_topic_idx else None
+    augmented_system_prompt = build_follow_up_prompt(
+        session,
+        evaluation,
+        retrieved_facts,
+        should_advance=should_advance,
+        next_topic=next_topic,
+    )
     llm_res = call_llm(augmented_system_prompt, session["messages"])
 
     reply_text     = llm_res.get("reply", "Could you elaborate further on your approach?")
     is_complete    = llm_res.get("is_complete", False)
     # The model output is untrusted; the state machine is the source of truth
     # for which curriculum day the generated question covers.
-    day_covered    = target_days[session["current_topic_idx"]]["day"]
+    day_covered    = target_days[next_topic_idx]["day"]
     answer_judgment = llm_res.get("answer_judgment") or judgment
 
     print(f"[Session] {session_id} | Turn #{session['questions_asked']+1} | Judgment: {answer_judgment} | Day: {day_covered} | Complete: {is_complete}")
 
-    if day_covered:
-        session["days_covered"].add(day_covered)
+    # Record the topic that was just answered. The next question may be on a
+    # different day and must not satisfy the completion gate prematurely.
+    session["days_covered"].add(curr_day_num)
     session["questions_asked"] += 1
     session["messages"].append({"role": "assistant", "content": reply_text})
+    session["current_topic_idx"] = next_topic_idx
+    session["topic_attempts"] = next_topic_attempts
 
     # Enforce minimum 8 questions AND 4 days.
     questions_asked   = session["questions_asked"]
     days_covered_count = len(session["days_covered"])
     if is_complete and (questions_asked < 8 or days_covered_count < 4):
         is_complete = False
-        remaining = [d["day"] for d in target_days if d["day"] not in session["days_covered"]]
-        next_day  = remaining[0] if remaining else target_days[0]["day"]
-        reply_text += f"\n\nLet me ask you another question to dig deeper into Day {next_day}."
+        next_topic = target_days[next_topic_idx]
+        reply_text = (
+            f"We need to continue before concluding. For Day {next_topic['day']} — "
+            f"{next_topic['title']}: explain the core concept, one concrete implementation "
+            "decision, and a tradeoff you would consider."
+        )
         session["messages"][-1]["content"] = reply_text
 
     # Do not rely solely on model compliance to end an interview. Once the
     # agenda's final topic has been completed and minimum requirements are met,
     # complete the session deterministically.
     agenda_complete = (
-        (topic_passed or topic_cap)
+        should_advance
         and current_topic_idx == len(target_days) - 1
         and questions_asked >= 8
         and days_covered_count >= 4

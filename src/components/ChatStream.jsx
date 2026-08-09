@@ -116,7 +116,7 @@ export default function ChatStream({ messages, onSendMessage, isLoading, candida
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span className={`status-dot ${isLoading ? 'loading' : 'online'}`} />
           <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-2)' }}>
-            {isLoading ? 'Thinking…' : isComplete ? 'Interview Complete' : 'Live Interview'}
+            {isLoading ? 'Reviewing response…' : isComplete ? 'Interview Complete' : currentTopic ? `Reviewing Day ${currentTopic.day}` : 'Live Interview'}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

@@ -88,8 +88,8 @@ export default function CandidateSidebar({ candidate, targetDays, questionsAsked
   const firstTryMissions = missions.filter(m => m.passed && (m.attempts ?? 1) === 1).length;
   const skippedMissions = missions.filter(m => m.skipped).length;
 
-  const questionsShown = Math.max(0, (questionsAsked ?? 0) - 1);
-  const daysShown = Math.max(0, (daysCovered?.size ?? 0) - 1);
+  const questionsShown = questionsAsked ?? 0;
+  const daysShown = daysCovered?.size ?? 0;
   const reviewedShown = Object.keys(topicResults).length;
 
   const qPct = Math.min(100, (questionsShown / 8) * 100);

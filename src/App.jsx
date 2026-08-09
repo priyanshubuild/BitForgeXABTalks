@@ -31,6 +31,7 @@ export default function App() {
 
   const [topicResults, setTopicResults] = useState({});
   const [currentTopicIdx, setCurrentTopicIdx] = useState(0);
+  const [offlineTopicAttempts, setOfflineTopicAttempts] = useState(0);
 
   const applySessionSnapshot = (data) => {
     if (data.target_days?.length) setTargetDays(data.target_days);
@@ -64,6 +65,7 @@ export default function App() {
     setMessages([]);
     setTopicResults({});
     setCurrentTopicIdx(0);
+    setOfflineTopicAttempts(0);
     setTargetDays([]);
     setDaysCovered(new Set());
 
@@ -98,7 +100,7 @@ export default function App() {
       probe_reason: m.skipped ? 'Gap probe — skipped in cohort' : (m.passed === false ? 'Gap probe — not passed' : `Review — ${m.attempts || 1} attempt(s)`),
     }));
     setTargetDays(formatted);
-    setDaysCovered(new Set([formatted[0]?.day].filter(Boolean)));
+    setDaysCovered(new Set());
     setQuestionsAsked(1);
     setTimeout(() => {
       const firstDay = formatted[0] ?? { day: 7, title: 'Embeddings Explained' };
@@ -191,32 +193,39 @@ export default function App() {
     setTimeout(() => {
       const nextTurn = questionsAsked + 1;
       setQuestionsAsked(nextTurn);
-      const tidx = (nextTurn - 1) % (targetDays.length || 1);
-      const curDay = targetDays[tidx] || targetDays[0];
-      const prevTidx = (nextTurn - 2) % (targetDays.length || 1);
-      const prevDay = targetDays[prevTidx] || targetDays[0];
+      const curDay = targetDays[currentTopicIdx] || targetDays[0];
       const updatedDaysCovered = new Set(daysCovered);
       if (curDay) {
         updatedDaysCovered.add(curDay.day);
         setDaysCovered(updatedDaysCovered);
       }
-      setCurrentTopicIdx(tidx);
 
-      // Evaluate the answer against the PREVIOUS topic (what was asked about)
-      const judgment = evaluateAnswerLocally(text, prevDay?.title || 'general AI');
+      // A fallback interview must obey the same order as the backend: judge
+      // the current topic first, then remain on weak answers until retry cap.
+      const judgment = evaluateAnswerLocally(text, curDay?.title || 'general AI');
+      const weakJudgment = ['skipped', 'too_brief', 'off_topic', 'vague'].includes(judgment);
+      const attemptsAfterAnswer = offlineTopicAttempts + 1;
+      const retryCapReached = weakJudgment && attemptsAfterAnswer >= 2;
+      const shouldAdvance = !weakJudgment || retryCapReached;
+      const nextIdx = shouldAdvance
+        ? Math.min(currentTopicIdx + 1, Math.max(0, targetDays.length - 1))
+        : currentTopicIdx;
+      const questionDay = targetDays[nextIdx] || curDay;
+      setCurrentTopicIdx(nextIdx);
+      setOfflineTopicAttempts(shouldAdvance ? 0 : attemptsAfterAnswer);
 
       // Store result for this topic
-      if (prevDay) {
+      if (curDay) {
         setTopicResults(prev => ({
           ...prev,
-          [prevDay.day]: judgment,
+          [curDay.day]: judgment,
         }));
       }
 
       if (nextTurn >= 8 && updatedDaysCovered.size >= 4) {
         // Count weak vs strong answers
         const allResults = { ...topicResults };
-        if (prevDay) allResults[prevDay.day] = judgment;
+        if (curDay) allResults[curDay.day] = judgment;
         const weakCount = Object.values(allResults).filter(j =>
           ['skipped', 'too_brief', 'off_topic'].includes(j)
         ).length;
@@ -250,50 +259,32 @@ export default function App() {
         let responsePrefix = '';
         switch (judgment) {
           case 'skipped':
-            responsePrefix = `You indicated you're unsure about this topic. That's noted as a **gap** in your evaluation. Let's move on.\n\n`;
+            responsePrefix = retryCapReached
+              ? `You indicated you're unsure about this topic. It is recorded as a **gap**, so we'll move on.\n\n`
+              : `**Verdict: Insufficient** — please stay with **${curDay?.title || 'this topic'}** and try again with a concrete explanation.\n\n`;
             break;
           case 'too_brief':
-            responsePrefix = `⚠️ That answer was too brief to evaluate meaningfully — it's been marked as **insufficient**.\n\n`;
+            responsePrefix = retryCapReached
+              ? `That answer was too brief to evaluate meaningfully, so it is marked **insufficient** and we'll move on.\n\n`
+              : `**Verdict: Insufficient** — that answer is too brief to evaluate. Please answer the same topic with implementation details.\n\n`;
             break;
           case 'off_topic':
-            responsePrefix = `⚠️ Your answer doesn't appear to address **${prevDay?.title || 'the topic'}**. That's been noted as **off-topic**.\n\n`;
+            responsePrefix = retryCapReached
+              ? `Your answer did not address **${curDay?.title || 'the topic'}**, so it is recorded as **off-topic** and we'll move on.\n\n`
+              : `**Verdict: Off-Topic** — the response does not address **${curDay?.title || 'the topic'}**. Please refocus on the original question.\n\n`;
             break;
           case 'vague':
-            responsePrefix = `Your answer touches on the topic but lacks specific implementation details. Noted as **needs more depth**.\n\n`;
+            responsePrefix = retryCapReached
+              ? `Your answer needs more depth. This is recorded as a **gap**, so we'll move on.\n\n`
+              : `**Verdict: Needs depth** — stay on **${curDay?.title || 'this topic'}** and add concrete tools, steps, and tradeoffs.\n\n`;
             break;
           default:
             responsePrefix = '';
         }
 
-        const probes = {
-          skipped: [
-            `Moving on to **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**: Tell me about the core concept and how you'd implement it from scratch.`,
-            `Let's try **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: What tools would you choose and why?`,
-          ],
-          too_brief: [
-            `For **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**: Walk me through the implementation step-by-step. What specific code or configuration would you write?`,
-            `On **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: Describe a concrete scenario where you'd use this and the architecture you'd build.`,
-          ],
-          off_topic: [
-            `Let me redirect — for **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**, specifically: what does this topic involve technically, and how would you implement it?`,
-            `Focusing specifically on **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: what's the core challenge and how would you solve it?`,
-          ],
-          vague: [
-            `Can you be more precise about **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**? I need concrete implementation details — what specific tools, patterns, or code did you use?`,
-            `Dig deeper on **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: what was the hardest technical decision, and what alternative did you reject?`,
-          ],
-          adequate: [
-            `Good. Now on **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**: how did you handle edge cases or failure modes in your implementation?`,
-            `For **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: what would break first at 10x scale, and how would you address it?`,
-          ],
-          strong: [
-            `Solid answer. Let's go deeper with **Day ${curDay?.day ?? 7} (${curDay?.title ?? 'this topic'})**: if a senior engineer reviewed your solution, what criticism would they raise?`,
-            `Moving to **Day ${curDay?.day ?? 8} (${curDay?.title ?? 'this module'})**: what's the most important architectural decision here and why?`,
-          ],
-        };
-
-        const options = probes[judgment] || probes.adequate;
-        const question = options[(nextTurn - 2) % options.length];
+        const question = shouldAdvance && nextIdx > currentTopicIdx
+          ? `Moving to **Day ${questionDay?.day ?? 7} (${questionDay?.title ?? 'this topic'})**: explain the core concept, one implementation decision, and a tradeoff you would consider.`
+          : `For **Day ${questionDay?.day ?? 7} (${questionDay?.title ?? 'this topic'})**: explain the core concept, the concrete tools or implementation steps you would use, and one tradeoff or failure mode.`;
         setMessages([...updated, { role: 'assistant', content: responsePrefix + question }]);
       }
       setIsLoading(false);

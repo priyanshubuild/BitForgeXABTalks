@@ -386,6 +386,33 @@
 
 ---
 
+### Phase 17: Interview Ordering, Evaluation Safety & Documentation Review
+**Prompt:**
+> Check the backend flow and AI review order, fix every issue found, improve the site, update README.md and PROMPTS.md, then prepare the corrected code for GitHub.
+
+**Files Modified:**
+- `/backend/interview_engine.py` — Evaluator normalization, verified coverage accounting, bounded optional memory work
+- `/backend/test_evaluator.py` — Regression assertion for unsafe verdict/action combinations
+- `/src/App.jsx` — Offline fallback topic retry state machine
+- `/src/components/CandidateSidebar.jsx` — Accurate question and reviewed-topic counters
+- `/src/components/ChatStream.jsx` — Current-day evaluation status
+- `/README.md` and `/PROMPTS.md` — Corrected behavior and validation documentation
+
+**Core Accomplishments:**
+- Evaluator output is normalized before it reaches the state machine. For example, an `off_topic` verdict is forced to `call_out_and_reask`; it cannot carry an unsafe `advance` action.
+- Curriculum coverage is recorded only after the candidate responds to a day. Asking a new question no longer inflates the four-day completion gate.
+- The offline UI simulation now evaluates the current day, re-asks weak/off-topic/vague responses once, and moves forward only after a strong answer or retry cap—matching backend behavior.
+- Optional Breeth writes and searches are bounded so slow third-party calls do not accumulate unbounded background work or block interview progression.
+- The active root React app now clearly labels the curriculum day currently under review and reports live counts without subtracting an artificial initial topic.
+
+**Verification:**
+- `python3 -m compileall -q backend` passed
+- `npm run build` passed
+- `npm run lint` passed
+- `git diff --check` passed
+
+---
+
 ## 🚀 Live Deployment Checklist
 - [x] Public GitHub Repository: `https://github.com/priyanshubuild/BitForgeXABTalks`
 - [x] AI Usage Log: [`PROMPTS.md`](./PROMPTS.md) — This file (unified prompt & development log)

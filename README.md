@@ -13,6 +13,8 @@ The AI Interview Agent conducts **personalized, multi-turn technical interviews*
 - **Curriculum-Aware Questioning** — Targets specific days the candidate passed, skipped, or failed
 - **Adaptive Follow-Ups** — Evaluates every answer for topical relevance, depth, and correctness before deciding the next move
 - **Topic State Machine** — Only advances topics when the candidate demonstrates mastery or hits a retry cap (2 attempts max per topic)
+- **Verified Coverage** — A curriculum day counts only after the candidate has answered it; merely asking the next question cannot satisfy the completion gate
+- **Evaluator Guardrails** — Model verdicts and next actions are normalized before they can change interview state
 - **Real Answer Evaluation** — Both LLM-powered and heuristic pipelines that can actually **fail** weak, off-topic, or skipped answers
 - **Breeth Memory Graph** — Persistent memory layer tracks candidate facts across turns for deeper context augmentation
 - **Structured Feedback** — Generates detailed evaluation reports with summary, strengths, gaps, and actionable next steps
@@ -72,6 +74,16 @@ npm run dev
 ```
 Open `http://localhost:3000`
 
+### Validation
+```bash
+python3 -m compileall -q backend
+npm run build
+npm run lint
+```
+
+`backend/sessions.db` is local runtime state. It is ignored by Git and should
+never be committed or included in a deployment artifact.
+
 ---
 
 ## 🌐 API Contract (`POST /api/interview`)
@@ -108,6 +120,15 @@ Open `http://localhost:3000`
 | HTTP endpoint per technical spec | ✅ POST /api/interview |
 | AI Usage Log | ✅ PROMPTS.md |
 
+### Interview progression guarantees
+
+For every candidate response, the backend evaluates the answer against the
+topic that was actually asked before changing the current topic. Off-topic,
+incorrect, insufficient, and vague answers receive a focused re-ask or
+cross-examination. A topic moves forward only after a strong `advance` verdict
+or the two-attempt cap, which records that topic as a feedback gap. The offline
+UI fallback follows the same retry behavior.
+
 ---
 
 ## 🛠️ Tech Stack
@@ -133,7 +154,8 @@ bitforge/
 │   ├── llm_client.py        # Gemini/simulation LLM calls
 │   ├── breeth_client.py     # Breeth memory API integration
 │   ├── session_store.py     # SQLite session persistence
-│   └── schemas.py           # Pydantic models
+│   ├── test_evaluator.py    # Evaluator regression checks
+│   └── test_interview_fallback.py # Offline-question regression check
 ├── src/
 │   ├── App.jsx              # Main app — 3-page navigation
 │   ├── index.css            # Full design system (Apple-pure)
